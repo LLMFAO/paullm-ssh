@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "CC83127D2F0CD84D006804BF"
-               BuildableName = "VVTerm.app"
-               BlueprintName = "VVTerm"
-               ReferencedContainer = "container:VVTerm.xcodeproj">
+               BuildableName = "paullm-ssh.app"
+               BlueprintName = "paullm-ssh"
+               ReferencedContainer = "container:paullm-ssh.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -36,9 +36,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "CC8312912F0CD84E006804BF"
-               BuildableName = "VVTermTests.xctest"
-               BlueprintName = "VVTermTests"
-               ReferencedContainer = "container:VVTerm.xcodeproj">
+               BuildableName = "paullm-sshTests.xctest"
+               BlueprintName = "paullm-sshTests"
+               ReferencedContainer = "container:paullm-ssh.xcodeproj">
             </BuildableReference>
          </TestableReference>
          <TestableReference
@@ -47,9 +47,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "CC83129B2F0CD84E006804BF"
-               BuildableName = "VVTermUITests.xctest"
-               BlueprintName = "VVTermUITests"
-               ReferencedContainer = "container:VVTerm.xcodeproj">
+               BuildableName = "paullm-sshUITests.xctest"
+               BlueprintName = "paullm-sshUITests"
+               ReferencedContainer = "container:paullm-ssh.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -69,13 +69,13 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "CC83127D2F0CD84D006804BF"
-            BuildableName = "VVTerm.app"
-            BlueprintName = "VVTerm"
-            ReferencedContainer = "container:VVTerm.xcodeproj">
+            BuildableName = "paullm-ssh.app"
+            BlueprintName = "paullm-ssh"
+            ReferencedContainer = "container:paullm-ssh.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <StoreKitConfigurationFileReference
-         identifier = "../../VVTermStoreKit.storekit">
+         identifier = "../../paullm-sshStoreKit.storekit">
       </StoreKitConfigurationFileReference>
    </LaunchAction>
    <ProfileAction
@@ -89,9 +89,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "CC83127D2F0CD84D006804BF"
-            BuildableName = "VVTerm.app"
-            BlueprintName = "VVTerm"
-            ReferencedContainer = "container:VVTerm.xcodeproj">
+            BuildableName = "paullm-ssh.app"
+            BlueprintName = "paullm-ssh"
+            ReferencedContainer = "container:paullm-ssh.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
