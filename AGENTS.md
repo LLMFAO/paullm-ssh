@@ -1,4 +1,4 @@
-# VVTerm
+# paullm-ssh
 
 Cross-platform (iOS/macOS) SSH terminal app with iCloud sync and Keychain credential storage.
 
@@ -11,9 +11,9 @@ Cross-platform (iOS/macOS) SSH terminal app with iCloud sync and Keychain creden
 ## Architecture
 
 ```
-VVTerm/
+paullm-ssh/
 ├── App/
-│   ├── VVTermApp.swift           # App entry point and composition root
+│   ├── paullm-sshApp.swift           # App entry point and composition root
 │   ├── ContentView.swift         # Shared root container
 │   ├── Localization/             # App-scoped localization preferences
 │   └── iOS/                      # iOS app shell and root navigation views
@@ -93,7 +93,7 @@ VVTerm/
 
 ## Architecture Direction
 
-VVTerm uses a **feature-first architecture** for app-owned source code.
+paullm-ssh uses a **feature-first architecture** for app-owned source code.
 
 Current architecture:
 - `App` owns app entry, composition roots, shared root containers, localization preferences, and iOS app-shell navigation.

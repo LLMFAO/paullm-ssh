@@ -1,27 +1,25 @@
-# VVTerm
+# paullm-ssh
 
-[![macOS](https://img.shields.io/badge/macOS-13.3+-black?style=flat-square&logo=apple)](https://vvterm.com)
-[![iOS](https://img.shields.io/badge/iOS-16.1+-black?style=flat-square&logo=apple)](https://vvterm.com)
+[![macOS](https://img.shields.io/badge/macOS-13.3+-black?style=flat-square&logo=apple)](https://www.apple.com)
+[![iOS](https://img.shields.io/badge/iOS-16.1+-black?style=flat-square&logo=apple)](https://www.apple.com)
 [![Swift](https://img.shields.io/badge/Swift-5.0+-F05138?style=flat-square&logo=swift&logoColor=white)](https://swift.org)
 [![Source License](https://img.shields.io/badge/Source-GPL%203.0-blue?style=flat-square)](LICENSE)
-[![Binary License](https://img.shields.io/badge/Binary-App%20Store%20EULA-6e7681?style=flat-square)](LICENSE-APPSTORE.md)
-[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-ff69b4?style=flat-square&logo=github)](https://github.com/sponsors/vivy-company)
 
-Your servers. Everywhere.
+Open-source SSH terminal for iPhone and Mac.
 
-![VVTerm macOS](/web/src/preview.png)
+![paullm-ssh](/web/src/preview.png)
 
 ## Overview
 
-VVTerm is a cross-platform SSH terminal app for Apple platforms. The current codebase targets iOS and macOS, uses Ghostty for terminal rendering, libssh2/OpenSSL for SSH transport, CloudKit for sync, and Keychain for local credential storage.
+paullm-ssh is a cross-platform SSH terminal app for Apple platforms. The current codebase targets iOS and macOS, uses Ghostty for terminal rendering, libssh2/OpenSSL for SSH transport, CloudKit for sync, and Keychain for local credential storage.
 
 ## Current State
 
-- Main app target: `VVTerm`
-- Companion target: `VVTermLiveActivity`
+- Main app target: `paullm-ssh`
+- Companion target: `paullm-sshLiveActivity`
 - Runtime targets: `macOS 13.3+` and `iOS 16.1+`
 - Hardware targets: Apple Silicon / arm64 only
-- App-owned code is organized under `VVTerm/App`, `VVTerm/Core`, and `VVTerm/Features`
+- App-owned code is organized under `paullm-ssh/App`, `paullm-ssh/Core`, and `paullm-ssh/Features`
 - The repo also contains tests, native vendor builds, feature specs under `docs/specs`, and the marketing site under `web/`
 
 ## Implemented Feature Areas
@@ -30,7 +28,7 @@ VVTerm is a cross-platform SSH terminal app for Apple platforms. The current cod
 
 - GPU-accelerated terminal rendering via `GhosttyKit`
 - SSH authentication with password, SSH key, and SSH key + passphrase
-- Connection modes for standard SSH, Tailscale, Mosh, and Cloudflare Access
+- Connection modes for standard SSH, Mosh, and Cloudflare Access
 - Multi-session connection management with tabs, split panes, reconnect handling, and persisted session state
 - tmux-aware startup, attach, install, and recovery flows
 - Rich paste and clipboard helpers for terminal input
@@ -41,7 +39,6 @@ VVTerm is a cross-platform SSH terminal app for Apple platforms. The current cod
 
 - Workspaces with ordering, colors, and environment grouping
 - Server metadata including favorites, tags, notes, last-connected timestamps, and biometric-unlock requirements
-- Pro limit enforcement for workspaces, servers, tabs, and split panes
 - Local-network SSH discovery via Bonjour and subnet probing
 
 ### Remote files
@@ -63,7 +60,7 @@ VVTerm is a cross-platform SSH terminal app for Apple platforms. The current cod
 - Built-in and custom terminal themes with validation, storage-path management, and sync-aware preference handling
 - Customizable terminal accessory bar with reorderable actions and user-defined shortcuts
 - Terminal presets for saved commands/snippets
-- Settings surfaces for general, terminal, sync, keychain, pro, and about flows
+- Settings surfaces for general, terminal, sync, keychain, and about flows
 - Welcome/onboarding and in-app support surfaces
 
 ### Stats and voice input
@@ -73,10 +70,10 @@ VVTerm is a cross-platform SSH terminal app for Apple platforms. The current cod
 
 ## Architecture
 
-VVTerm uses a feature-first structure for app-owned code.
+paullm-ssh uses a feature-first structure for app-owned code.
 
 ```text
-VVTerm/
+paullm-ssh/
 ├── App/                         # App entry, composition roots, shared root containers
 ├── Core/                        # Shared infrastructure and cross-feature primitives
 │   ├── Logging/
@@ -105,7 +102,7 @@ VVTerm/
 ├── GhosttyTerminal/             # Ghostty bridge and terminal host views
 ├── Compatibility/               # Version/platform helpers
 ├── Generated/                   # Build-time generated sources
-└── Resources/                   # Bundled assets, themes, terminfo, localizations
+└── Resources/                  # Bundled assets, themes, terminfo, localizations
 ```
 
 Feature modules follow these boundaries:
@@ -118,16 +115,16 @@ Feature modules follow these boundaries:
 Other top-level folders in the repo:
 
 ```text
-VVTerm-iOS/                     # iOS Info.plist and entitlements
-VVTerm-macOS/                   # macOS Info.plist and entitlements
-VVTermLiveActivity/             # ActivityKit target
-VVTermShared/                   # Shared Activity attributes and small shared types
-VVTermTests/                    # Unit and integration tests
-VVTermUITests/                  # UI tests
-Vendor/                         # Vendored native dependencies
-docs/specs/                     # Feature specs and implementation notes
-scripts/                        # Vendor build scripts
-web/                            # Astro site for vvterm.com
+paullm-ssh-iOS/                     # iOS Info.plist and entitlements
+paullm-ssh-macOS/                   # macOS Info.plist and entitlements
+paullm-sshLiveActivity/             # ActivityKit target
+paullm-sshShared/                   # Shared Activity attributes and small shared types
+paullm-sshTests/                    # Unit and integration tests
+paullm-sshUITests/                  # UI tests
+Vendor/                             # Vendored native dependencies
+docs/                               # Documentation
+scripts/                            # Build scripts
+web/                                # Marketing site
 ```
 
 ## Requirements
@@ -147,14 +144,14 @@ brew install zig cmake
 ## Building From Source
 
 ```bash
-git clone https://github.com/vivy-company/vvterm.git
-cd vvterm
+git clone https://github.com/paullm/paullm-ssh.git
+cd paullm-ssh
 
 # Build native vendor libraries (GhosttyKit + libssh2/OpenSSL)
 ./scripts/build.sh all
 
 # Open the project in Xcode
-open VVTerm.xcodeproj
+open paullm-ssh.xcodeproj
 ```
 
 `./scripts/build.sh` supports `all`, `ghostty`, `ssh`, `clean`, and `help`.
@@ -176,21 +173,6 @@ Swift package dependencies currently resolved by the Xcode project:
 - [swift-numerics](https://github.com/apple/swift-numerics)
 - [TweetNacl](https://github.com/bitmark-inc/tweetnacl-swiftwrap.git)
 
-## Installation
-
-[![Download on the App Store](https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg)](https://apps.apple.com/app/vvterm/id6757482822)
-
-## Pro Tier
-
-| Feature | Free | Pro |
-|---------|------|-----|
-| Workspaces | 1 | Unlimited |
-| Servers | 3 | Unlimited |
-| Tabs | 1 | Unlimited |
-| Split panes | No | Yes |
-
-**Pricing:** Monthly ($6.49), Yearly ($24.99), Lifetime ($49.99)
-
 ## Documentation
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) for contribution workflow
@@ -201,12 +183,6 @@ Swift package dependencies currently resolved by the Xcode project:
 
 ## License
 
-VVTerm uses a dual-license model:
+paullm-ssh is licensed under GNU GPL v3.0 (`LICENSE`).
 
-- Source code in this repository is licensed under GNU GPL v3.0 (`LICENSE`)
-- Official App Store binaries are distributed under VVTerm's custom App Store EULA (`LICENSE-APPSTORE.md`, https://vvterm.com/terms)
-
-If you obtain VVTerm from source and build it yourself, GPL-3.0 applies.
-If you obtain VVTerm via the App Store, App Store distribution terms apply to that binary.
-
-Copyright © 2026 Vivy Technologies Co., Limited
+Copyright © 2025 paullm

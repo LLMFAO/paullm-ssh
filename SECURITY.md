@@ -5,7 +5,7 @@
 Security fixes are applied to:
 
 - The latest code on `main`
-- The latest App Store release of VVTerm
+- The latest App Store release of paullm-ssh
 
 Older versions may not receive security updates.
 

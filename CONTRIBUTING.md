@@ -1,6 +1,6 @@
-# Contributing to VVTerm
+# Contributing to paullm-ssh
 
-Thanks for your interest in contributing to VVTerm.
+Thanks for your interest in contributing to paullm-ssh.
 
 ## Code of Conduct
 
@@ -25,7 +25,7 @@ Setup:
 git clone https://github.com/vivy-company/vvterm.git
 cd vvterm
 ./scripts/build.sh all
-open VVTerm.xcodeproj
+open paullm-ssh.xcodeproj
 ```
 
 ## Pull Request Guidelines
