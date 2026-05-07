@@ -2,23 +2,11 @@ import Foundation
 
 enum ServerMoveSupport {
     static func allowedDestinationIDs(
-        isPro: Bool,
         sourceWorkspaceId: UUID,
-        workspacesInOrder: [Workspace],
-        unlockedWorkspaceIds: Set<UUID>
+        workspacesInOrder: [Workspace]
     ) -> Set<UUID> {
         let orderedIDs = workspacesInOrder.map(\.id)
-
-        if isPro {
-            return Set(orderedIDs.filter { $0 != sourceWorkspaceId })
-        }
-
-        let sourceIsUnlocked = unlockedWorkspaceIds.contains(sourceWorkspaceId)
-        if sourceIsUnlocked {
-            return Set(orderedIDs.filter { $0 != sourceWorkspaceId && unlockedWorkspaceIds.contains($0) })
-        }
-
-        return unlockedWorkspaceIds
+        return Set(orderedIDs.filter { $0 != sourceWorkspaceId })
     }
 
     static func resolveEnvironment(

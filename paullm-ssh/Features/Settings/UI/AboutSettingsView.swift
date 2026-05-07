@@ -43,22 +43,20 @@ struct AboutSettingsView: View {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
     }
 
-    private var appIcon: Image {
-        #if os(macOS)
-        if let nsImage = NSImage(named: "AppIcon") {
-            return Image(nsImage: nsImage)
+    private var appIcon: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .foregroundColor(.primary.opacity(0.06))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+                )
+            Text("#")
+                .font(.system(size: 40, weight: .thin, design: .rounded))
+                .foregroundStyle(.primary)
         }
-        return Image(systemName: "terminal")
-        #else
-        if let icons = Bundle.main.infoDictionary?["CFBundleIcons"] as? [String: Any],
-           let primaryIcon = icons["CFBundlePrimaryIcon"] as? [String: Any],
-           let iconFiles = primaryIcon["CFBundleIconFiles"] as? [String],
-           let lastIcon = iconFiles.last,
-           let uiImage = UIImage(named: lastIcon) {
-            return Image(uiImage: uiImage)
-        }
-        return Image(systemName: "terminal")
-        #endif
+        .frame(width: 80, height: 80)
+        .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
     }
 
     private var subtitleColor: Color {
@@ -87,11 +85,6 @@ struct AboutSettingsView: View {
             Section {
                 VStack(spacing: 16) {
                     appIcon
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 80, height: 80)
-                        .cornerRadius(16)
-                        .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
 
                     Text("paullm-ssh")
                         .font(.title)

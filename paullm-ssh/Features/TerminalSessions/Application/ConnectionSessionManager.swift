@@ -201,11 +201,11 @@ final class ConnectionSessionManager: ObservableObject {
     func openConnection(to server: Server, forceNew: Bool = false) async throws -> ConnectionSession {
         // Check if server is locked due to downgrade
         if ServerManager.shared.isServerLocked(server) {
-            throw paullm-sshError.serverLocked(server.name)
+            throw paullm_sshError.serverLocked(server.name)
         }
 
         if sessionOpensInFlight.contains(server.id) {
-            throw paullm-sshError.connectionFailed(
+            throw paullm_sshError.connectionFailed(
                 String(localized: "A connection is already opening for this server.")
             )
         }
@@ -213,17 +213,13 @@ final class ConnectionSessionManager: ObservableObject {
         defer { sessionOpensInFlight.remove(server.id) }
 
         guard await AppLockManager.shared.ensureServerUnlocked(server) else {
-            throw paullm-sshError.authenticationFailed
+            throw paullm_sshError.authenticationFailed
         }
 
         // Check if already have a session for this server (unless forcing new)
         if !forceNew, let existingSession = firstSession(for: server.id) {
             selectedSessionId = existingSession.id
             return existingSession
-        }
-
-        guard canOpenNewTab else {
-            throw paullm-sshError.proRequired(String(localized: "Upgrade to Pro for multiple connections"))
         }
 
         let preferredSessionId = selectedSessionByServer[server.id] ?? selectedSessionId

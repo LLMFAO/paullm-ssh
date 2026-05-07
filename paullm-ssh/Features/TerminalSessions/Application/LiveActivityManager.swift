@@ -22,10 +22,10 @@ final class LiveActivityManager {
 
     #if os(iOS)
     @available(iOS 16.1, *)
-    private var activity: Activity<paullm-sshActivityAttributes>?
+    private var activity: Activity<paullmsshActivityAttributes>?
 
     @available(iOS 16.1, *)
-    private var lastState: paullm-sshActivityAttributes.ContentState?
+    private var lastState: paullmsshActivityAttributes.ContentState?
 
     @available(iOS 16.1, *)
     private func updateActivity(for sessions: [ConnectionSession]) async {
@@ -42,7 +42,7 @@ final class LiveActivityManager {
 
         await attachToExistingActivityIfNeeded()
 
-        let status: paullm-sshLiveActivityStatus
+        let status: paullmsshLiveActivityStatus
         if sessions.contains(where: { if case .reconnecting = $0.connectionState { return true } else { return false } }) {
             status = .reconnecting
         } else if sessions.contains(where: { if case .connecting = $0.connectionState { return true } else { return false } }) {
@@ -53,10 +53,10 @@ final class LiveActivityManager {
             status = .disconnected
         }
 
-        let newState = paullm-sshActivityAttributes.ContentState(status: status, activeCount: activeCount)
+        let newState = paullmsshActivityAttributes.ContentState(status: status, activeCount: activeCount)
         if activity == nil {
             do {
-                let attributes = paullm-sshActivityAttributes(appName: "paullm-ssh")
+                let attributes = paullmsshActivityAttributes(appName: "paullm-ssh")
                 activity = try Activity.request(attributes: attributes, contentState: newState, pushType: nil)
                 lastState = newState
             } catch {
@@ -73,7 +73,7 @@ final class LiveActivityManager {
     @available(iOS 16.1, *)
     private func attachToExistingActivityIfNeeded() async {
         guard activity == nil else { return }
-        let existing = Activity<paullm-sshActivityAttributes>.activities
+        let existing = Activity<paullmsshActivityAttributes>.activities
         guard let current = existing.first else { return }
         activity = current
 
@@ -86,7 +86,7 @@ final class LiveActivityManager {
 
     @available(iOS 16.1, *)
     private func endAllActivities() async {
-        let existing = Activity<paullm-sshActivityAttributes>.activities
+        let existing = Activity<paullmsshActivityAttributes>.activities
         for activity in existing {
             await activity.end(dismissalPolicy: .immediate)
         }

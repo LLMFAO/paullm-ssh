@@ -8,20 +8,14 @@ struct WorkspaceFormSheet: View {
     let onSave: (Workspace) -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var storeManager = StoreManager.shared
 
     @State private var name: String = ""
     @State private var selectedColor: Color = .blue
-    @State private var showingUpgradeSheet = false
     @State private var workspaceToDelete: Workspace?
     @State private var isSaving = false
     @State private var error: String?
 
     private var isEditing: Bool { workspace != nil }
-
-    private var isAtLimit: Bool {
-        !isEditing && !serverManager.canAddWorkspace
-    }
 
     let availableColors: [Color] = [
         .blue, .purple, .pink, .red, .orange, .yellow, .green, .teal, .cyan, .indigo
@@ -45,23 +39,11 @@ struct WorkspaceFormSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                // Limit Banner
-                if isAtLimit {
-                    Section {
-                        ProLimitBanner(
-                            title: String(localized: "Workspace Limit Reached"),
-                            message: String(localized: "Upgrade to Pro for unlimited workspaces.")
-                        ) {
-                            showingUpgradeSheet = true
-                        }
-                    }
-                }
-
                 // Name field
                 Section("Name") {
                     TextField("Workspace name", text: $name)
                         .onSubmit {
-                            if !name.isEmpty && !isAtLimit {
+                            if !name.isEmpty {
                                 saveWorkspace()
                             }
                         }
@@ -127,11 +109,8 @@ struct WorkspaceFormSheet: View {
                     Button(isEditing ? String(localized: "Save") : String(localized: "Create")) {
                         saveWorkspace()
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving || isAtLimit)
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSaving)
                 }
-            }
-            .sheet(isPresented: $showingUpgradeSheet) {
-                ProUpgradeSheet()
             }
             .alert("Delete Workspace?", isPresented: Binding(
                 get: { workspaceToDelete != nil },
@@ -178,15 +157,6 @@ struct WorkspaceFormSheet: View {
                 await MainActor.run {
                     onSave(newWorkspace)
                     dismiss()
-                }
-            } catch let error as paullm-sshError {
-                await MainActor.run {
-                    if case .proRequired = error {
-                        self.showingUpgradeSheet = true
-                    } else {
-                        self.error = error.localizedDescription
-                    }
-                    self.isSaving = false
                 }
             } catch {
                 await MainActor.run {

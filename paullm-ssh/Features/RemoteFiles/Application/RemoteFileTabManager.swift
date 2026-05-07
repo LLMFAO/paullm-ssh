@@ -40,11 +40,7 @@ final class RemoteFileTabManager: ObservableObject {
     }
 
     func canOpenNewTab(for serverId: UUID) -> Bool {
-        if StoreManager.shared.isPro {
-            return true
-        }
-
-        return tabs(for: serverId).count < FreeTierLimits.maxTabs
+        true
     }
 
     @discardableResult

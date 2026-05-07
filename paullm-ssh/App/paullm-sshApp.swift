@@ -1,6 +1,6 @@
 //
-//  paullm-sshApp.swift
-//  paullm-ssh
+//  paullm_sshApp.swift
+//  paullm_ssh
 //
 
 import SwiftUI
@@ -9,7 +9,7 @@ import AppKit
 #endif
 
 @main
-struct paullm-sshApp: App {
+struct paullm_sshApp: App {
     init() {
         TerminalDefaults.applyIfNeeded()
     }
@@ -28,7 +28,7 @@ struct paullm-sshApp: App {
     @StateObject private var appLockManager = AppLockManager.shared
     @StateObject private var storeManager = StoreManager.shared
     @StateObject private var remoteFileTabManager = RemoteFileTabManager()
-    @StateObject private var remoteFileBrowserStore = paullm-sshApp.makeRemoteFileBrowserStore()
+    @StateObject private var remoteFileBrowserStore = paullm_sshApp.makeRemoteFileBrowserStore()
     @StateObject private var terminalThemeManager = TerminalThemeManager.shared
     @StateObject private var terminalAccessoryPreferencesManager = TerminalAccessoryPreferencesManager.shared
 
@@ -128,13 +128,13 @@ struct paullm-sshApp: App {
         .windowToolbarStyle(.unified)
         .defaultSize(width: 1100, height: 700)
         .commands {
-            paullm-sshCommands()
+            paullm_sshCommands()
         }
         #endif
     }
 }
 
-private extension paullm-sshApp {
+private extension paullm_sshApp {
     static func makeRemoteFileBrowserStore() -> RemoteFileBrowserStore {
         let adapter = SSHSFTPAdapter(borrowedClientProvider: { serverId in
             ConnectionSessionManager.shared.sharedStatsClient(for: serverId)
@@ -176,7 +176,7 @@ private extension paullm-sshApp {
 // MARK: - macOS App Delegate
 
 #if os(macOS)
-struct paullm-sshCommands: Commands {
+struct paullm_sshCommands: Commands {
     @Environment(\.openWindow) private var openWindow
     @FocusedValue(\.serverViewTabActions) private var serverViewTabActions
     @FocusedValue(\.openLocalSSHDiscovery) private var openLocalSSHDiscovery

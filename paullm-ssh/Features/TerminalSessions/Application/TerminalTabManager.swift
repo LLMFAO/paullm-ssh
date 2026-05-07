@@ -139,7 +139,7 @@ final class TerminalTabManager: ObservableObject {
     @discardableResult
     func openTab(for server: Server) async throws -> TerminalTab {
         if tabOpensInFlight.contains(server.id) {
-            throw paullm-sshError.connectionFailed(
+            throw paullm_sshError.connectionFailed(
                 String(localized: "A tab is already opening for this server.")
             )
         }
@@ -147,7 +147,7 @@ final class TerminalTabManager: ObservableObject {
         defer { tabOpensInFlight.remove(server.id) }
 
         guard await AppLockManager.shared.ensureServerUnlocked(server) else {
-            throw paullm-sshError.authenticationFailed
+            throw paullm_sshError.authenticationFailed
         }
 
         let tab = TerminalTab(serverId: server.id, title: server.name)
@@ -219,14 +219,12 @@ final class TerminalTabManager: ObservableObject {
 
     /// Split a pane horizontally (left | right)
     func splitHorizontal(tab: TerminalTab, paneId: UUID) -> UUID? {
-        guard StoreManager.shared.isPro else { return nil }
-        return splitPane(tab: tab, paneId: paneId, direction: .horizontal)
+        splitPane(tab: tab, paneId: paneId, direction: .horizontal)
     }
 
     /// Split a pane vertically (top / bottom)
     func splitVertical(tab: TerminalTab, paneId: UUID) -> UUID? {
-        guard StoreManager.shared.isPro else { return nil }
-        return splitPane(tab: tab, paneId: paneId, direction: .vertical)
+        splitPane(tab: tab, paneId: paneId, direction: .vertical)
     }
 
     private func splitPane(tab: TerminalTab, paneId: UUID, direction: TerminalSplitDirection) -> UUID? {

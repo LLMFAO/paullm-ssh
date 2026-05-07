@@ -128,7 +128,11 @@ extension RemoteFileBrowserScreen {
                     }
                 }
 
+                #if swift(>=6.1)
                 ToolbarSpacer(.fixed)
+                #else
+                ToolbarItem(placement: .bottomBar) { Spacer() }
+                #endif
 
                 ToolbarItem(placement: .bottomBar) {
                     iOSBottomToolbarButton(systemName: "arrow.up.doc") {
@@ -136,7 +140,11 @@ extension RemoteFileBrowserScreen {
                     }
                 }
 
+                #if swift(>=6.1)
                 ToolbarSpacer(.fixed)
+                #else
+                ToolbarItem(placement: .bottomBar) { Spacer() }
+                #endif
 
                 ToolbarItem(placement: .bottomBar) {
                     iOSBottomToolbarButton(systemName: "folder.badge.plus") {
@@ -144,7 +152,11 @@ extension RemoteFileBrowserScreen {
                     }
                 }
 
+                #if swift(>=6.1)
                 ToolbarSpacer(.fixed)
+                #else
+                ToolbarItem(placement: .bottomBar) { Spacer() }
+                #endif
 
                 ToolbarItem(placement: .bottomBar) {
                     iOSBottomToolbarButton(systemName: "document.on.document") {
@@ -152,7 +164,11 @@ extension RemoteFileBrowserScreen {
                     }
                 }
 
+                #if swift(>=6.1)
                 ToolbarSpacer(.fixed)
+                #else
+                ToolbarItem(placement: .bottomBar) { Spacer() }
+                #endif
 
                 ToolbarItem(placement: .bottomBar) {
                     iOSBrowserMenu()

@@ -114,7 +114,6 @@ struct ServerFormCredentialBuilder {
 
 struct ServerFormSheet: View {
     @ObservedObject var serverManager: ServerManager
-    @ObservedObject private var storeManager = StoreManager.shared
     @EnvironmentObject private var appLockManager: AppLockManager
     let workspace: Workspace?
     let server: Server?
@@ -145,7 +144,6 @@ struct ServerFormSheet: View {
     @State private var tmuxEnabled: Bool = true
     @State private var tmuxStartupBehavior: TmuxStartupBehavior = .vvtermManaged
 
-    @State private var showingServerLimitAlert = false
     @State private var showingCreateWorkspace = false
     @State private var showingAddKeySheet = false
     @State private var isSaving = false
@@ -208,13 +206,6 @@ struct ServerFormSheet: View {
         }
     }
 
-    private var serverCount: Int {
-        serverManager.servers.count
-    }
-
-    private var isAtLimit: Bool {
-        !isEditing && !serverManager.canAddServer
-    }
 
     private var assignmentWorkspaces: [Workspace] {
         serverManager.assignmentWorkspaces(for: server)
@@ -306,7 +297,7 @@ struct ServerFormSheet: View {
     }
 
     private var saveButtonDisabled: Bool {
-        !isValid || isSaving || isAtLimit || isLoadingCredentials || isTestingConnection
+        !isValid || isSaving || isLoadingCredentials || isTestingConnection
     }
 
     var body: some View {
@@ -334,7 +325,6 @@ struct ServerFormSheet: View {
 
     private var formContent: some View {
         Form {
-            limitSection
             serverSection
             authSection
             connectionSection
@@ -447,7 +437,6 @@ struct ServerFormSheet: View {
                     applyPrefill(ServerFormPrefill(discoveredHost: discoveredHost))
                 }
             }
-            .limitReachedAlert(.servers, isPresented: $showingServerLimitAlert)
             .onAppear {
                 storedKeys = KeychainManager.shared.getStoredSSHKeys()
                 selectMatchingStoredKeyIfAvailable()
@@ -586,29 +575,6 @@ struct ServerFormSheet: View {
         } footer: {
             if let workspaceAvailabilityHelpText {
                 Text(workspaceAvailabilityHelpText)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var limitSection: some View {
-        if isAtLimit {
-            Section {
-                ProLimitBanner(
-                    title: String(localized: "Server Limit Reached"),
-                    message: String(format: String(localized: "You've reached the limit of %lld servers. Upgrade to Pro for unlimited servers."), Int64(FreeTierLimits.maxServers))
-                ) {
-                    showingServerLimitAlert = true
-                }
-            }
-        } else if !isEditing && !storeManager.isPro {
-            Section {
-                UsageIndicator(
-                    current: serverCount,
-                    limit: FreeTierLimits.maxServers,
-                    label: String(localized: "Servers"),
-                    showUpgrade: $showingServerLimitAlert
-                )
             }
         }
     }
@@ -1208,15 +1174,6 @@ struct ServerFormSheet: View {
                     onSave(newServer)
                     dismiss()
                 }
-            } catch let error as paullm-sshError {
-                await MainActor.run {
-                    if case .proRequired = error {
-                        self.showingServerLimitAlert = true
-                    } else {
-                        self.error = error.localizedDescription
-                    }
-                    self.isSaving = false
-                }
             } catch {
                 await MainActor.run {
                     self.error = error.localizedDescription
@@ -1229,7 +1186,6 @@ struct ServerFormSheet: View {
 
 struct MoveServerSheet: View {
     @ObservedObject var serverManager: ServerManager
-    @ObservedObject private var storeManager = StoreManager.shared
     let server: Server
     let preferredDestination: Workspace?
     let onMove: (Server) -> Void
@@ -1240,7 +1196,6 @@ struct MoveServerSheet: View {
     @State private var selectedEnvironment: ServerEnvironment
     @State private var isMoving = false
     @State private var error: String?
-    @State private var showingUpgrade = false
     @State private var showingCreateWorkspace = false
 
     init(
@@ -1290,11 +1245,7 @@ struct MoveServerSheet: View {
 
     private var destinationAvailabilityNotice: String {
         if serverManager.workspaces.count <= 1 {
-            if storeManager.isPro {
-                return String(localized: "No additional workspaces yet. Create one to move this server.")
-            }
-
-            return String(localized: "No additional workspaces yet. Create another workspace to move this server. Multiple workspaces are available on Pro.")
+            return String(localized: "No additional workspaces yet. Create one to move this server.")
         }
 
         return String(localized: "No additional workspace is available for this server right now.")
@@ -1429,9 +1380,6 @@ struct MoveServerSheet: View {
                 }
             )
         }
-        .sheet(isPresented: $showingUpgrade) {
-            ProUpgradeSheet()
-        }
         #if os(iOS)
         .navigationTitle("Move Server")
         .navigationBarTitleDisplayMode(.inline)
@@ -1525,15 +1473,6 @@ struct MoveServerSheet: View {
                     isMoving = false
                     onMove(updatedServer)
                     dismiss()
-                }
-            } catch let error as paullm-sshError {
-                await MainActor.run {
-                    isMoving = false
-                    if case .proRequired = error {
-                        showingUpgrade = true
-                    } else {
-                        self.error = error.localizedDescription
-                    }
                 }
             } catch {
                 await MainActor.run {

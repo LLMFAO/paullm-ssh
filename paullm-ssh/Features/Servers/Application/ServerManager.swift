@@ -825,10 +825,6 @@ final class ServerManager: ObservableObject {
     // MARK: - Server CRUD
 
     func addServer(_ server: Server, credentials: ServerCredentials) async throws {
-        guard canAddServer else {
-            throw paullm-sshError.proRequired(String(localized: "Upgrade to Pro for unlimited servers"))
-        }
-
         var newServer = server
         newServer = Server(
             id: server.id,
@@ -952,10 +948,6 @@ final class ServerManager: ObservableObject {
     // MARK: - Workspace CRUD
 
     func addWorkspace(_ workspace: Workspace) async throws {
-        guard canAddWorkspace else {
-            throw paullm-sshError.proRequired(String(localized: "Upgrade to Pro for unlimited workspaces"))
-        }
-
         var newWorkspace = workspace
         newWorkspace = Workspace(
             id: workspace.id,
@@ -1077,19 +1069,7 @@ final class ServerManager: ObservableObject {
     }
 
     func assignmentWorkspaces(for server: Server?) -> [Workspace] {
-        if StoreManager.shared.isPro {
-            return workspacesSortedByOrder
-        }
-
-        guard let server,
-              let currentWorkspace = workspace(withId: server.workspaceId) else {
-            return workspacesSortedByOrder.filter { unlockedWorkspaceIds.contains($0.id) }
-        }
-
-        let allowedDestinationIDs = moveDestinationIDs(for: server)
-        return workspacesSortedByOrder.filter {
-            $0.id == currentWorkspace.id || allowedDestinationIDs.contains($0.id)
-        }
+        workspacesSortedByOrder
     }
 
     func moveDestinations(for server: Server) -> [Workspace] {
@@ -1129,7 +1109,7 @@ final class ServerManager: ObservableObject {
         preferredEnvironment: ServerEnvironment? = nil
     ) async throws -> Server {
         guard let refreshedDestination = workspace(withId: destination.id) else {
-            throw paullm-sshError.moveNotAllowed(String(localized: "The destination workspace is no longer available."))
+            throw paullm_sshError.moveNotAllowed(String(localized: "The destination workspace is no longer available."))
         }
 
         if let restriction = moveRestriction(for: server, destination: refreshedDestination) {
@@ -1168,7 +1148,7 @@ final class ServerManager: ObservableObject {
     }
 
     var canCreateCustomEnvironment: Bool {
-        StoreManager.shared.isPro
+        true
     }
 
     // MARK: - Downgrade Locking
@@ -1184,70 +1164,56 @@ final class ServerManager: ObservableObject {
         workspaces.sorted { $0.order < $1.order }
     }
 
-    /// Set of server IDs that are accessible on free tier (oldest N servers)
+    /// Set of server IDs that are accessible - all servers are unlocked
     var unlockedServerIds: Set<UUID> {
-        if StoreManager.shared.isPro { return Set(servers.map(\.id)) }
-        let unlocked = serversSortedByCreation.prefix(FreeTierLimits.maxServers)
-        return Set(unlocked.map(\.id))
+        Set(servers.map(\.id))
     }
 
-    /// Set of workspace IDs that are accessible on free tier (first N workspaces by order)
+    /// Set of workspace IDs that are accessible - all workspaces are unlocked
     var unlockedWorkspaceIds: Set<UUID> {
-        if StoreManager.shared.isPro { return Set(workspaces.map(\.id)) }
-        let unlocked = workspacesSortedByOrder.prefix(FreeTierLimits.maxWorkspaces)
-        return Set(unlocked.map(\.id))
+        Set(workspaces.map(\.id))
     }
 
-    /// Check if a specific server is locked (over free tier limit)
+    /// Check if a specific server is locked - always false
     func isServerLocked(_ server: Server) -> Bool {
-        if StoreManager.shared.isPro { return false }
-        return !unlockedServerIds.contains(server.id)
+        false
     }
 
-    /// Check if a specific workspace is locked (over free tier limit)
+    /// Check if a specific workspace is locked - always false
     func isWorkspaceLocked(_ workspace: Workspace) -> Bool {
-        if StoreManager.shared.isPro { return false }
-        return !unlockedWorkspaceIds.contains(workspace.id)
+        false
     }
 
-    /// Number of servers that are locked due to downgrade
+    /// Number of servers that are locked due to downgrade - always 0
     var lockedServersCount: Int {
-        if StoreManager.shared.isPro { return 0 }
-        return max(0, servers.count - FreeTierLimits.maxServers)
+        0
     }
 
-    /// Number of workspaces that are locked due to downgrade
+    /// Number of workspaces that are locked due to downgrade - always 0
     var lockedWorkspacesCount: Int {
-        if StoreManager.shared.isPro { return 0 }
-        return max(0, workspaces.count - FreeTierLimits.maxWorkspaces)
+        0
     }
 
-    /// Whether user has any locked items after downgrade
+    /// Whether user has any locked items after downgrade - always false
     var hasLockedItems: Bool {
-        lockedServersCount > 0 || lockedWorkspacesCount > 0
+        false
     }
 
     private func moveDestinationIDs(for server: Server) -> Set<UUID> {
         ServerMoveSupport.allowedDestinationIDs(
-            isPro: StoreManager.shared.isPro,
             sourceWorkspaceId: server.workspaceId,
-            workspacesInOrder: workspacesSortedByOrder,
-            unlockedWorkspaceIds: unlockedWorkspaceIds
+            workspacesInOrder: workspacesSortedByOrder
         )
     }
 
-    private func moveRestriction(for server: Server, destination: Workspace) -> paullm-sshError? {
+    private func moveRestriction(for server: Server, destination: Workspace) -> paullm_sshError? {
         guard server.workspaceId != destination.id else { return nil }
 
         if moveDestinationIDs(for: server).contains(destination.id) {
             return nil
         }
 
-        if !StoreManager.shared.isPro && isWorkspaceLocked(destination) {
-            return paullm-sshError.proRequired(String(localized: "Upgrade to Pro to move servers into locked workspaces"))
-        }
-
-        return paullm-sshError.moveNotAllowed(String(localized: "This server can't be moved to that workspace right now."))
+        return paullm_sshError.moveNotAllowed(String(localized: "This server can't be moved to that workspace right now."))
     }
 
     private func updateWorkspaceSelectionMetadataAfterMove(
@@ -1271,10 +1237,7 @@ final class ServerManager: ObservableObject {
     }
 
     func createCustomEnvironment(name: String, color: String) throws -> ServerEnvironment {
-        guard canCreateCustomEnvironment else {
-            throw paullm-sshError.proRequired(String(localized: "Upgrade to Pro for custom environments"))
-        }
-        return ServerEnvironment(
+        ServerEnvironment(
             id: UUID(),
             name: name,
             shortName: String(name.prefix(4)),
@@ -1339,17 +1302,9 @@ final class ServerManager: ObservableObject {
     }
 }
 
-// MARK: - Free Tier Limits
-
-enum FreeTierLimits {
-    static let maxWorkspaces = 1
-    static let maxServers = 3
-    static let maxTabs = 1
-}
-
 // MARK: - paullm-ssh Error
 
-enum paullm-sshError: LocalizedError {
+enum paullm_sshError: LocalizedError {
     case proRequired(String)
     case serverLocked(String)
     case workspaceLocked(String)

@@ -38,7 +38,7 @@ enum RestoreState: Equatable {
     }
 }
 
-enum paullm-sshProducts {
+enum paullm_sshProducts {
     static let proMonthly = "com.vivy.vivyterm.pro.monthly"
     static let proYearly = "com.vivy.vivyterm.pro.yearly"
     static let proLifetime = "com.vivy.vivyterm.pro.lifetime"

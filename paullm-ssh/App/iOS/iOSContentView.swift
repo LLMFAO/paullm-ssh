@@ -62,15 +62,13 @@ struct iOSContentView: View {
                                 isConnecting = false
                                 connectingServer = nil
                             }
-                        } catch let error as paullm-sshError {
+                        } catch let error as paullm_sshError {
                             await MainActor.run {
                                 isConnecting = false
                                 connectingServer = nil
                                 showingTerminal = false
 
                                 switch error {
-                                case .proRequired:
-                                    showingTabLimitAlert = true
                                 case .serverLocked(let name):
                                     lockedServerName = name
                                 default:
@@ -151,7 +149,6 @@ struct iOSServerListView: View {
     @Binding var showingTerminal: Bool
     let onServerSelected: (Server) -> Void
 
-    @ObservedObject private var storeManager = StoreManager.shared
     @ObservedObject private var viewTabConfig = ViewTabConfigurationManager.shared
     @State private var showingAddServer = false
     @State private var showingLocalDiscovery = false
@@ -166,7 +163,6 @@ struct iOSServerListView: View {
     @State private var serverToMove: Server?
     @State private var lockedServerAlert: Server?
     @State private var navigationBarAppearanceToken = UUID()
-    @State private var showingCustomEnvironmentAlert = false
     @State private var addServerPrefill: ServerFormPrefill?
     @State private var queuedDiscoveryPrefill: ServerFormPrefill?
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
@@ -359,11 +355,7 @@ struct iOSServerListView: View {
                 set: { if !$0 { lockedServerAlert = nil } }
             )
         )
-        .proFeatureAlert(
-            title: String(localized: "Custom Environments"),
-            message: String(localized: "Upgrade to Pro for custom environments"),
-            isPresented: $showingCustomEnvironmentAlert
-        )
+
         .onChange(of: showingLocalDiscovery) { isPresented in
             guard !isPresented, let queued = queuedDiscoveryPrefill else { return }
             queuedDiscoveryPrefill = nil
@@ -474,25 +466,13 @@ struct iOSServerListView: View {
                         environments: environmentOptions,
                         serverCounts: serverCountsByEnvironment,
                         onCreateCustom: {
-                            if storeManager.isPro {
-                                showingCreateEnvironment = true
-                            } else {
-                                showingCustomEnvironmentAlert = true
-                            }
+                            showingCreateEnvironment = true
                         },
                         onEditCustom: { environment in
-                            if storeManager.isPro {
-                                editingEnvironment = environment
-                            } else {
-                                showingCustomEnvironmentAlert = true
-                            }
+                            editingEnvironment = environment
                         },
                         onDeleteCustom: { environment in
-                            if storeManager.isPro {
-                                environmentToDelete = environment
-                            } else {
-                                showingCustomEnvironmentAlert = true
-                            }
+                            environmentToDelete = environment
                         }
                     )
                 }

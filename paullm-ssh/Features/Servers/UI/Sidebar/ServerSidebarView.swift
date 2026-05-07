@@ -8,18 +8,15 @@ struct ServerSidebarView: View {
     @Binding var selectedWorkspace: Workspace?
     @Binding var selectedServer: Server?
 
-    @ObservedObject private var storeManager = StoreManager.shared
     @ObservedObject private var tabManager = TerminalTabManager.shared
 
     @State private var showingWorkspaceSwitcher = false
     @State private var showingAddServer = false
     @State private var showingLocalDiscovery = false
     @State private var showingSupport = false
-    @State private var showingProUpgrade = false
     @State private var showingServerSearch = false
     @State private var showingEnvironmentFilters = false
     @State private var showingCreateEnvironment = false
-    @State private var showingCustomEnvironmentAlert = false
     @State private var editingEnvironment: ServerEnvironment?
     @State private var environmentToDelete: ServerEnvironment?
     @State private var searchText = ""
@@ -178,10 +175,8 @@ struct ServerSidebarView: View {
                 }
             }
 
-            // Support paullm-ssh (only when not Pro)
-            if !storeManager.isPro {
-                supportBanner
-            }
+            // Support paullm-ssh
+            supportBanner
 
             // Footer buttons
             footerButtons
@@ -260,9 +255,6 @@ struct ServerSidebarView: View {
         .sheet(isPresented: $showingSupport) {
             SupportSheet()
         }
-        .sheet(isPresented: $showingProUpgrade) {
-            ProUpgradeSheet()
-        }
         .sheet(isPresented: $showingCreateEnvironment) {
             if let workspace = selectedWorkspace {
                 EnvironmentFormSheet(
@@ -317,11 +309,6 @@ struct ServerSidebarView: View {
             let name = environmentToDelete?.displayName ?? String(localized: "Custom")
             Text(String(format: String(localized: "Servers in '%@' will be moved to Production."), name))
         }
-        .proFeatureAlert(
-            title: String(localized: "Custom Environments"),
-            message: String(localized: "Upgrade to Pro for custom environments"),
-            isPresented: $showingCustomEnvironmentAlert
-        )
         .onChange(of: showingLocalDiscovery) { isPresented in
             guard !isPresented, let queued = queuedDiscoveryPrefill else { return }
             queuedDiscoveryPrefill = nil
@@ -519,20 +506,12 @@ struct ServerSidebarView: View {
                         if !env.isBuiltIn {
                             Menu {
                                 Button {
-                                    if storeManager.isPro {
-                                        editingEnvironment = env
-                                    } else {
-                                        showingCustomEnvironmentAlert = true
-                                    }
+                                    editingEnvironment = env
                                 } label: {
                                     Label("Edit", systemImage: "pencil")
                                 }
                                 Button(role: .destructive) {
-                                    if storeManager.isPro {
-                                        environmentToDelete = env
-                                    } else {
-                                        showingCustomEnvironmentAlert = true
-                                    }
+                                    environmentToDelete = env
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -558,11 +537,7 @@ struct ServerSidebarView: View {
 
                 // Create custom environment
                 Button {
-                    if storeManager.isPro {
-                        showingCreateEnvironment = true
-                    } else {
-                        showingCustomEnvironmentAlert = true
-                    }
+                    showingCreateEnvironment = true
                 } label: {
                     HStack(spacing: 7) {
                         Image(systemName: "plus")
@@ -572,11 +547,6 @@ struct ServerSidebarView: View {
                             .font(.caption)
                             .lineLimit(1)
                         Spacer(minLength: 8)
-                        if !storeManager.isPro {
-                            Image(systemName: "star.fill")
-                                .foregroundStyle(.orange)
-                                .font(.system(size: 10))
-                        }
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 6)
@@ -729,7 +699,7 @@ struct ServerSidebarView: View {
 
     private var supportBanner: some View {
         Button {
-            showingProUpgrade = true
+            showingSupport = true
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")

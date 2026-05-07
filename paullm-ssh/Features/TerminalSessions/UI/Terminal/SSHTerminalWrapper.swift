@@ -38,7 +38,7 @@ enum SSHConnectionRunner {
                 _ = try await sshClient.connect(to: server, credentials: credentials)
                 guard !Task.isCancelled else { return }
 
-                let size = terminal.terminalSize()
+                let size = await terminal.terminalSize()
                 let cols = Int(size?.columns ?? 80)
                 let rows = Int(size?.rows ?? 24)
 
@@ -99,6 +99,7 @@ enum SSHConnectionRunner {
 // MARK: - SSH Terminal Coordinator Protocol
 
 /// Protocol for shared SSH terminal coordinator functionality across platforms
+@MainActor
 protocol SSHTerminalCoordinator: AnyObject {
     var server: Server { get }
     var credentials: ServerCredentials { get }
@@ -564,8 +565,8 @@ struct SSHTerminalWrapper: NSViewRepresentable {
         }
 
         private func applyWorkingDirectoryIfNeeded() async {
-            guard ConnectionSessionManager.shared.shouldApplyWorkingDirectory(for: sessionId) else { return }
-            guard let cwd = ConnectionSessionManager.shared.workingDirectory(for: sessionId) else { return }
+            guard await ConnectionSessionManager.shared.shouldApplyWorkingDirectory(for: sessionId) else { return }
+            guard let cwd = await ConnectionSessionManager.shared.workingDirectory(for: sessionId) else { return }
             let environment = await sshClient.remoteEnvironment()
             guard environment.supportsWorkingDirectoryRestore else { return }
             guard let payload = RemoteTerminalBootstrap.directoryChangeCommand(for: cwd, environment: environment).data(using: .utf8) else { return }
@@ -583,7 +584,9 @@ struct SSHTerminalWrapper: NSViewRepresentable {
             // If it is, the terminal is being reused by another view (e.g., split view)
             guard terminalView == nil else { return }
 
-            cancelShell()
+            Task { @MainActor [self] in
+                cancelShell()
+            }
         }
     }
 }
@@ -957,8 +960,8 @@ private struct SSHTerminalRepresentable: UIViewRepresentable {
         }
 
         private func applyWorkingDirectoryIfNeeded() async {
-            guard ConnectionSessionManager.shared.shouldApplyWorkingDirectory(for: sessionId) else { return }
-            guard let cwd = ConnectionSessionManager.shared.workingDirectory(for: sessionId) else { return }
+            guard await ConnectionSessionManager.shared.shouldApplyWorkingDirectory(for: sessionId) else { return }
+            guard let cwd = await ConnectionSessionManager.shared.workingDirectory(for: sessionId) else { return }
             let environment = await sshClient.remoteEnvironment()
             guard environment.supportsWorkingDirectoryRestore else { return }
             guard let payload = RemoteTerminalBootstrap.directoryChangeCommand(for: cwd, environment: environment).data(using: .utf8) else { return }
@@ -970,7 +973,9 @@ private struct SSHTerminalRepresentable: UIViewRepresentable {
         deinit {
             // Don't cleanup if session is still active (user just navigated away)
             guard !preserveSession else { return }
-            cancelShell()
+            Task { @MainActor [self] in
+                cancelShell()
+            }
         }
     }
 }
