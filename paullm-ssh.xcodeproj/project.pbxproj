@@ -61,7 +61,6 @@
 		CC83127E2F0CD84D006804BF /* paullm-ssh.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = paullm-ssh.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC8312922F0CD84E006804BF /* paullm-sshTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = paullm-sshTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CC83129C2F0CD84E006804BF /* paullm-sshUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = paullm-sshUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		CC837B372F0E62F2006804BF /* paullm-sshStoreKit.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = paullm-sshStoreKit.storekit; sourceTree = "<group>"; };
 		F3220D94C71F0D68A0DF623E /* paullm-sshLiveActivity.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = paullm-sshLiveActivity.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -159,7 +158,6 @@
 		CC8312752F0CD84D006804BF = {
 			isa = PBXGroup;
 			children = (
-				CC837B372F0E62F2006804BF /* paullm-sshStoreKit.storekit */,
 				CC8312802F0CD84D006804BF /* paullm-ssh */,
 				07A189989926A7D4F3FAE363 /* paullm-sshShared */,
 				7448DABBC8B1AB31C2800F73 /* paullm-sshLiveActivity */,
@@ -451,7 +449,7 @@
 				INFOPLIST_FILE = paullm-sshLiveActivity/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 2.1;
-				PRODUCT_BUNDLE_IDENTIFIER = app.vivy.VivyTerm.liveactivity;
+				PRODUCT_BUNDLE_IDENTIFIER = app.paullm.ssh.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -471,7 +469,7 @@
 				INFOPLIST_FILE = paullm-sshLiveActivity/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MARKETING_VERSION = 2.1;
-				PRODUCT_BUNDLE_IDENTIFIER = app.vivy.VivyTerm.liveactivity;
+				PRODUCT_BUNDLE_IDENTIFIER = app.paullm.ssh.liveactivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
@@ -600,7 +598,7 @@
 					QuartzCore,
 				);
 				OTHER_MTLFLAGS = "-Wno-c++17-extensions";
-				PRODUCT_BUNDLE_IDENTIFIER = app.vivy.VivyTerm;
+				PRODUCT_BUNDLE_IDENTIFIER = app.paullm.ssh;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				"PRODUCT_NAME[sdk=macosx*]" = paullm-ssh;
 				REGISTER_APP_GROUPS = YES;
@@ -741,7 +739,7 @@
 					QuartzCore,
 				);
 				OTHER_MTLFLAGS = "-Wno-c++17-extensions";
-				PRODUCT_BUNDLE_IDENTIFIER = app.vivy.VivyTerm;
+				PRODUCT_BUNDLE_IDENTIFIER = app.paullm.ssh;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				"PRODUCT_NAME[sdk=macosx*]" = paullm-ssh;
 				REGISTER_APP_GROUPS = YES;
@@ -908,7 +906,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MACOSX_DEPLOYMENT_TARGET = 13.3;
 				MARKETING_VERSION = 2.1;
-				PRODUCT_BUNDLE_IDENTIFIER = app.vivy.VivyTermTests;
+				PRODUCT_BUNDLE_IDENTIFIER = app.paullm.sshTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -947,7 +945,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MACOSX_DEPLOYMENT_TARGET = 13.3;
 				MARKETING_VERSION = 2.1;
-				PRODUCT_BUNDLE_IDENTIFIER = app.vivy.VivyTermTests;
+				PRODUCT_BUNDLE_IDENTIFIER = app.paullm.sshTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -973,7 +971,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MACOSX_DEPLOYMENT_TARGET = 13.3;
 				MARKETING_VERSION = 2.1;
-				PRODUCT_BUNDLE_IDENTIFIER = app.vivy.VivyTermUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = app.paullm.sshUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
@@ -999,7 +997,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.1;
 				MACOSX_DEPLOYMENT_TARGET = 13.3;
 				MARKETING_VERSION = 2.1;
-				PRODUCT_BUNDLE_IDENTIFIER = app.vivy.VivyTermUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = app.paullm.sshUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = auto;
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;

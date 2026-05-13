@@ -354,7 +354,7 @@ class GhosttyTerminalView: UIView {
     /// Current scrollbar state from Ghostty core
     var scrollbar: Ghostty.Action.Scrollbar?
 
-    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "app.vivy.vvterm", category: "GhosttyTerminal")
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "app.paullm.ssh", category: "GhosttyTerminal")
 
     private var isSelecting = false
     private var isScrolling = false
@@ -1501,6 +1501,11 @@ class GhosttyTerminalView: UIView {
         case "c":
             if canPerformAction(#selector(copy(_:)), withSender: nil) {
                 copy(nil)
+            }
+            return true
+        case "i":
+            if key.modifierFlags.contains(.shift) {
+                NotificationCenter.default.post(name: .openInputBuffer, object: nil)
             }
             return true
         default:
@@ -2918,6 +2923,14 @@ private class TerminalInputAccessoryView: UIInputView {
             button.accessibilityLabel = actionID.listTitle
             commandButton = button
             updateModifierButton(button, isActive: commandActive)
+            return button
+        }
+
+        if actionID == .openInputBuffer {
+            let button = makeIconButton(icon: "text.bubble") { [weak self] in
+                NotificationCenter.default.post(name: .openInputBuffer, object: nil)
+            }
+            button.accessibilityLabel = actionID.listTitle
             return button
         }
 

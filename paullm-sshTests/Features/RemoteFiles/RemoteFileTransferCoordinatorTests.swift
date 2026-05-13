@@ -9,25 +9,25 @@ struct RemoteFileTransferCoordinatorTests {
         let store = RemoteFileBrowserStore(defaults: makeDefaults())
         let service = RecordingRemoteFileService(
             directoryContents: [
-                "/root/.vivyterm": [
-                    makeEntry(name: "cache", path: "/root/.vivyterm/cache", type: .directory),
-                    makeEntry(name: "config.json", path: "/root/.vivyterm/config.json", type: .file),
-                    makeEntry(name: "current", path: "/root/.vivyterm/current", type: .symlink)
+                "/root/.paullm": [
+                    makeEntry(name: "cache", path: "/root/.paullm/cache", type: .directory),
+                    makeEntry(name: "config.json", path: "/root/.paullm/config.json", type: .file),
+                    makeEntry(name: "current", path: "/root/.paullm/current", type: .symlink)
                 ],
-                "/root/.vivyterm/cache": [
-                    makeEntry(name: "index.db", path: "/root/.vivyterm/cache/index.db", type: .file)
+                "/root/.paullm/cache": [
+                    makeEntry(name: "index.db", path: "/root/.paullm/cache/index.db", type: .file)
                 ]
             ]
         )
 
-        try await store.deleteDirectoryRecursively(at: "/root/.vivyterm", using: service)
+        try await store.deleteDirectoryRecursively(at: "/root/.paullm", using: service)
 
         #expect(service.operations == [
-            .deleteFile("/root/.vivyterm/cache/index.db"),
-            .deleteDirectory("/root/.vivyterm/cache"),
-            .deleteFile("/root/.vivyterm/config.json"),
-            .deleteFile("/root/.vivyterm/current"),
-            .deleteDirectory("/root/.vivyterm")
+            .deleteFile("/root/.paullm/cache/index.db"),
+            .deleteDirectory("/root/.paullm/cache"),
+            .deleteFile("/root/.paullm/config.json"),
+            .deleteFile("/root/.paullm/current"),
+            .deleteDirectory("/root/.paullm")
         ])
     }
 

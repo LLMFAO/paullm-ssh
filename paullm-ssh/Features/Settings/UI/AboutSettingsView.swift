@@ -26,7 +26,7 @@ private struct ContactOption: Identifiable {
 private let contactOptions: [ContactOption] = [
     ContactOption(title: String(localized: "Developer"), subtitle: "@wiedymi", icon: "", iconImage: nil, iconText: "𝕏", color: .primary, url: "https://x.com/wiedymi"),
     ContactOption(title: String(localized: "Discord"), subtitle: String(localized: "Join Community"), icon: "", iconImage: "DiscordLogo", iconText: nil, color: Color(red: 0.345, green: 0.396, blue: 0.949), url: "https://discord.gg/zemMZtrkSb"),
-    ContactOption(title: String(localized: "Email"), subtitle: "vvterm@vivy.company", icon: "envelope.fill", iconImage: nil, iconText: nil, color: .orange, url: "mailto:vvterm@vivy.company")
+    ContactOption(title: String(localized: "Email"), subtitle: "support.dev", icon: "envelope.fill", iconImage: nil, iconText: nil, color: .orange, url: "mailto:support.dev")
 ]
 
 // MARK: - About Settings View
@@ -107,31 +107,31 @@ struct AboutSettingsView: View {
             }
 
             Section("Links") {
-                Link(destination: URL(string: "https://vvterm.com")!) {
+                Link(destination: URL(string: "https://paullm.dev")!) {
                     Label("Visit Website", systemImage: "globe")
                 }
                 .tint(.primary)
                 .foregroundStyle(.primary)
 
-                Link(destination: URL(string: "https://github.com/vivy-company/vvterm")!) {
+                Link(destination: URL(string: "https://github.com/LLMFAO/paullm-ssh")!) {
                     Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
                 .tint(.primary)
                 .foregroundStyle(.primary)
 
-                Link(destination: URL(string: "https://github.com/vivy-company/vvterm/issues")!) {
+                Link(destination: URL(string: "https://github.com/LLMFAO/paullm-ssh/issues")!) {
                     Label("Report an Issue", systemImage: "exclamationmark.bubble")
                 }
                 .tint(.primary)
                 .foregroundStyle(.primary)
 
-                Link(destination: URL(string: "https://vvterm.com/privacy")!) {
+                Link(destination: URL(string: "https://paullm.dev/privacy")!) {
                     Label("Privacy Policy", systemImage: "hand.raised")
                 }
                 .tint(.primary)
                 .foregroundStyle(.primary)
 
-                Link(destination: URL(string: "https://vvterm.com/terms")!) {
+                Link(destination: URL(string: "https://paullm.dev/terms")!) {
                     Label("Terms of Use (EULA)", systemImage: "doc.text")
                 }
                 .tint(.primary)

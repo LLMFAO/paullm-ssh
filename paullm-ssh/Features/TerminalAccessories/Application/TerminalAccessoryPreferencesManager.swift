@@ -17,7 +17,7 @@ final class TerminalAccessoryPreferencesManager: ObservableObject {
     private let cloudKit: CloudKitManager
     private let syncCoordinator = CloudKitSyncCoordinator.shared
     private let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "app.vivy.vvterm",
+        subsystem: Bundle.main.bundleIdentifier ?? "app.paullm.ssh",
         category: "TerminalAccessoryPreferences"
     )
 

@@ -10,6 +10,7 @@ import SwiftUI
 struct VoiceRecordingView: View {
     @ObservedObject var audioService: AudioService
     let onSend: (String) -> Void
+    let onSendToBuffer: ((String) -> Void)?
     let onCancel: () -> Void
     @Binding var isProcessing: Bool
 
@@ -98,6 +99,22 @@ struct VoiceRecordingView: View {
                 .buttonStyle(.plain)
                 .padding(.leading, 8)
                 .padding(.trailing, 0)
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.5)
+                        .onEnded { _ in
+                            guard let bufferFn = onSendToBuffer else { return }
+                            guard !isProcessing else { return }
+                            isProcessing = true
+                            Task {
+                                let text = await audioService.stopRecording()
+                                let output = text.isEmpty ? audioService.partialTranscription : text
+                                await MainActor.run {
+                                    isProcessing = false
+                                    bufferFn(output)
+                                }
+                            }
+                        }
+                )
             }
             .padding(.leading, 8)
             .padding(.trailing, 8)

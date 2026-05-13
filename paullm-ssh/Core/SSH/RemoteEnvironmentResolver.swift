@@ -219,7 +219,7 @@ enum RemoteEnvironmentResolver {
     }
 
     private static func detectPowerShellExecutable(using client: SSHClient) async -> String? {
-        let marker = "__VVTERM_PWSH_OK__"
+        let marker = "__PAULLM_PWSH_OK__"
         for executable in ["powershell", "pwsh"] {
             if let output = await probe("cmd.exe /d /c where \(executable)", using: client),
                output.lowercased().contains(executable) {
@@ -251,13 +251,13 @@ enum RemoteEnvironmentResolver {
             }
         }
 
-        let powerShellMarker = "__VVTERM_ACTIVE_POWERSHELL__"
+        let powerShellMarker = "__PAULLM_ACTIVE_POWERSHELL__"
         if let output = await probe("Write-Output '\(powerShellMarker)'", using: client),
            output.contains(powerShellMarker) {
             return .powershell
         }
 
-        let cmdMarker = "__VVTERM_ACTIVE_CMD__"
+        let cmdMarker = "__PAULLM_ACTIVE_CMD__"
         if let output = await probe("for %I in (1) do @echo \(cmdMarker)", using: client),
            output.contains(cmdMarker) {
             return .cmd

@@ -347,6 +347,14 @@ struct TerminalContainerView: View {
             }
         }
         #endif
+        .sheet(isPresented: Binding(
+            get: { InputBufferManager.shared.isPresented },
+            set: { InputBufferManager.shared.isPresented = $0 }
+        )) {
+            InputBufferSheet { text in
+                ConnectionSessionManager.shared.sendText(text, to: session.id)
+            }
+        }
     }
 
     @ViewBuilder
@@ -734,6 +742,12 @@ struct TerminalContainerView: View {
             audioService: audioService,
             onSend: { transcribedText in
                 sendTranscriptionToTerminal(transcribedText)
+                showingVoiceRecording = false
+                voiceProcessing = false
+            },
+            onSendToBuffer: { transcribedText in
+                InputBufferManager.shared.appendText(transcribedText)
+                InputBufferManager.shared.isPresented = true
                 showingVoiceRecording = false
                 voiceProcessing = false
             },

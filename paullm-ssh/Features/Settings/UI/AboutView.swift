@@ -86,35 +86,35 @@ struct AboutView: View {
                     title: String(localized: "Visit Website"),
                     icon: "globe",
                     isSystemImage: true,
-                    url: "https://vvterm.com"
+                    url: "https://paullm.dev"
                 )
 
                 LinkButton(
                     title: String(localized: "GitHub"),
                     icon: "chevron.left.forwardslash.chevron.right",
                     isSystemImage: true,
-                    url: "https://github.com/vivy-company/vvterm"
+                    url: "https://github.com/LLMFAO/paullm-ssh"
                 )
 
                 LinkButton(
                     title: String(localized: "Report an Issue"),
                     icon: "exclamationmark.bubble",
                     isSystemImage: true,
-                    url: "https://github.com/vivy-company/vvterm/issues"
+                    url: "https://github.com/LLMFAO/paullm-ssh/issues"
                 )
 
                 LinkButton(
                     title: String(localized: "Privacy Policy"),
                     icon: "hand.raised",
                     isSystemImage: true,
-                    url: "https://vvterm.com/privacy"
+                    url: "https://paullm.dev/privacy"
                 )
 
                 LinkButton(
                     title: String(localized: "Terms of Use (EULA)"),
                     icon: "doc.text",
                     isSystemImage: true,
-                    url: "https://vvterm.com/terms"
+                    url: "https://paullm.dev/terms"
                 )
             }
             .padding(.horizontal, 32)

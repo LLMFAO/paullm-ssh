@@ -15,7 +15,7 @@ final class KnownHostsManager: @unchecked Sendable {
         var id: String { "\(host):\(port)" }
     }
 
-    private let storageKey = "vvterm.knownHosts"
+    private let storageKey = "paullm.knownHosts"
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "paullm-ssh", category: "KnownHosts")
     private let lock = NSLock()
 

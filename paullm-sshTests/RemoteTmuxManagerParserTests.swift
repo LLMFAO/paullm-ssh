@@ -80,18 +80,18 @@ struct RemoteTmuxManagerParserTests {
     @Test
     func installAndAttachScriptIncludesSessionAndConfig() {
         let script = RemoteTmuxManager.shared.installAndAttachScript(
-            sessionName: "vvterm_demo",
+            sessionName: "paullm_demo",
             workingDirectory: "/tmp/work dir"
         )
-        #expect(script.contains("~/.vvterm/tmux.conf"))
+        #expect(script.contains("~/.paullm/tmux.conf"))
         #expect(script.contains("new-session -A -s"))
-        #expect(script.contains("vvterm_demo"))
+        #expect(script.contains("paullm_demo"))
         #expect(script.contains("/tmp/work dir"))
     }
 
     @Test
     func availabilityProbeUsesFallbackPathsAndNonLoginShell() {
-        let probe = RemoteTmuxManager.shared.tmuxAvailabilityProbeCommand(okMarker: "__VVTERM_TMUX_OK__")
+        let probe = RemoteTmuxManager.shared.tmuxAvailabilityProbeCommand(okMarker: "__PAULLM_TMUX_OK__")
         #expect(probe.hasPrefix("sh -c "))
         #expect(!probe.contains("sh -lc "))
         #expect(probe.contains("command -v tmux"))
@@ -99,6 +99,6 @@ struct RemoteTmuxManagerParserTests {
         #expect(probe.contains("/bin/tmux"))
         #expect(probe.contains("/usr/local/bin/tmux"))
         #expect(probe.contains("-V >/dev/null 2>&1"))
-        #expect(probe.contains("__VVTERM_TMUX_OK__"))
+        #expect(probe.contains("__PAULLM_TMUX_OK__"))
     }
 }

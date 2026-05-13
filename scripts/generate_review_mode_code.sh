@@ -1,11 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-OUTPUT_PATH="${SRCROOT:-$(pwd)}/VVTerm/Generated/ReviewModeCode.swift"
+OUTPUT_PATH="${SRCROOT:-$(pwd)}/paullm-ssh/Generated/ReviewModeCode.swift"
 CODE="${APP_REVIEW_CODE:-}"
 
 if [ -z "$CODE" ]; then
-  CODE="VVTERM-REVIEW-2026"
+  CODE="PAULLM-REVIEW-2026"
 fi
 
 # Escape for Swift string literals (backslash, double-quote, newline).

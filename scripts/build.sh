@@ -17,7 +17,7 @@ IOS_DEPLOYMENT_TARGET="16.0"
 
 GHOSTTY_REPO="https://github.com/wiedymi/ghostty.git"
 GHOSTTY_REF="${GHOSTTY_REF:-custom-io}"
-BUNDLE_ID="app.vivy.VivyTerm"
+BUNDLE_ID="app.paullm.ssh"
 
 KEEP_WORKDIR="${KEEP_WORKDIR:-0}"
 GHOSTTY_WORKDIR=""

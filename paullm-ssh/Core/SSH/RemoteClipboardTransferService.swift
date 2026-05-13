@@ -88,7 +88,7 @@ actor RemoteClipboardTransferService {
         let mktempCommand = RemoteTerminalBootstrap.wrapPOSIXShellCommand(
             """
             tmp_base="${TMPDIR:-/tmp}";
-            tmp_path="$(mktemp "${tmp_base%/}/vvterm-clipboard-XXXXXX")" || exit 1;
+            tmp_path="$(mktemp "${tmp_base%/}/paullm-clipboard-XXXXXX")" || exit 1;
             target_path="${tmp_path}.\(sanitizedExtension)";
             mv "$tmp_path" "$target_path" || {
                 rm -f "$tmp_path";
@@ -124,7 +124,7 @@ actor RemoteClipboardTransferService {
         let command = RemoteTerminalBootstrap.wrapPOSIXShellCommand(
             """
             tmp_base="${TMPDIR:-/tmp}";
-            for path in "${tmp_base%/}"/vvterm-clipboard-*; do
+            for path in "${tmp_base%/}"/paullm-clipboard-*; do
                 [ -f "$path" ] || continue
                 find "$path" -prune -mtime +1 -exec rm -f -- {} \\; >/dev/null 2>&1 || true
             done

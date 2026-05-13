@@ -17,13 +17,13 @@ struct ProSettingsView: View {
             }
 
             Section("Legal") {
-                Link(destination: URL(string: "https://vvterm.com/privacy/")!) {
+                Link(destination: URL(string: "https://paullm.dev/privacy/")!) {
                     Label("Privacy Policy", systemImage: "hand.raised")
                 }
                 .tint(.primary)
                 .foregroundStyle(.primary)
 
-                Link(destination: URL(string: "https://vvterm.com/terms/")!) {
+                Link(destination: URL(string: "https://paullm.dev/terms/")!) {
                     Label("Terms of Use (EULA)", systemImage: "doc.text")
                 }
                 .tint(.primary)

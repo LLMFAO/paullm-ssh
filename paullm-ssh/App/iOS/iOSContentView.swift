@@ -749,7 +749,7 @@ struct iOSTerminalView: View {
     @State private var showingZenPanel = false
     @State private var requestedTerminalDismissal = false
 
-    @SceneStorage("vvterm.zenMode.ios") private var isZenModeEnabled = false
+    @SceneStorage("paullm.zenMode.ios") private var isZenModeEnabled = false
 
     @AppStorage(CloudKitSyncConstants.terminalThemeNameKey) private var terminalThemeName = "Aizen Dark"
     @AppStorage(CloudKitSyncConstants.terminalThemeNameLightKey) private var terminalThemeNameLight = "Aizen Light"

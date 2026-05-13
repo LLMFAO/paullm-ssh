@@ -5,7 +5,7 @@ enum TerminalThemeStoragePaths {
         let fm = FileManager.default
         let appSupport = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
-        let bundleComponent = Bundle.main.bundleIdentifier ?? "app.vivy.vvterm"
+        let bundleComponent = Bundle.main.bundleIdentifier ?? "app.paullm.ssh"
         return appSupport
             .appendingPathComponent(bundleComponent, isDirectory: true)
             .appendingPathComponent("CustomThemes", isDirectory: true)

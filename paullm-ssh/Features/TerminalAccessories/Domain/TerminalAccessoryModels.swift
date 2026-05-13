@@ -401,6 +401,7 @@ enum TerminalAccessorySystemActionID: String, Codable, CaseIterable, Hashable, I
     case ctrlE
     case ctrlK
     case ctrlU
+    case openInputBuffer
     case unknown
 
     var id: String { rawValue }
@@ -454,6 +455,7 @@ enum TerminalAccessorySystemActionID: String, Codable, CaseIterable, Hashable, I
         case .ctrlE: return String(localized: "Ctrl+E")
         case .ctrlK: return String(localized: "Ctrl+K")
         case .ctrlU: return String(localized: "Ctrl+U")
+        case .openInputBuffer: return String(localized: "Compose")
         case .unknown: return String(localized: "Unknown")
         }
     }
@@ -493,6 +495,7 @@ enum TerminalAccessorySystemActionID: String, Codable, CaseIterable, Hashable, I
         case .ctrlE: return String(localized: "^E")
         case .ctrlK: return String(localized: "^K")
         case .ctrlU: return String(localized: "^U")
+        case .openInputBuffer: return String(localized: "Buf")
         case .unknown: return String(localized: "?")
         }
     }
@@ -503,6 +506,7 @@ enum TerminalAccessorySystemActionID: String, Codable, CaseIterable, Hashable, I
         case .arrowDown: return "arrow.down"
         case .arrowLeft: return "arrow.left"
         case .arrowRight: return "arrow.right"
+        case .openInputBuffer: return "text.bubble"
         default: return nil
         }
     }
@@ -713,7 +717,7 @@ extension TerminalAccessoryProfile {
     static let maxActiveItems = 28
     static let maxCustomActions = 100
     static let maxCustomActionTitleLength = 24
-    static let maxCommandContentLength = 2048
+    static let maxCommandContentLength = 16384
 
     static let defaultActiveItems: [TerminalAccessoryItemRef] = [
         .system(.escape),
@@ -727,21 +731,48 @@ extension TerminalAccessoryProfile {
         .system(.ctrlD),
         .system(.ctrlZ),
         .system(.ctrlL),
+        .system(.openInputBuffer),
         .system(.home),
         .system(.end),
         .system(.pageUp),
-        .system(.pageDown)
+        .system(.pageDown),
+        .system(.enter)
     ]
 
     static var defaultValue: TerminalAccessoryProfile {
-        TerminalAccessoryProfile(
+        let clearAction = TerminalAccessoryCustomAction(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            title: "/clear",
+            kind: .command,
+            commandContent: "/clear",
+            commandSendMode: .insertAndEnter
+        )
+        let yesAction = TerminalAccessoryCustomAction(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+            title: "y",
+            kind: .command,
+            commandContent: "y",
+            commandSendMode: .insertAndEnter
+        )
+        let noAction = TerminalAccessoryCustomAction(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
+            title: "n",
+            kind: .command,
+            commandContent: "n",
+            commandSendMode: .insertAndEnter
+        )
+        return TerminalAccessoryProfile(
             schemaVersion: schemaVersion,
             layout: TerminalAccessoryLayout(
                 version: 1,
-                activeItems: defaultActiveItems,
+                activeItems: defaultActiveItems + [
+                    .custom(clearAction.id),
+                    .custom(yesAction.id),
+                    .custom(noAction.id)
+                ],
                 updatedAt: .distantPast
             ),
-            customActions: [],
+            customActions: [clearAction, yesAction, noAction],
             updatedAt: .distantPast,
             lastWriterDeviceId: DeviceIdentity.id
         )

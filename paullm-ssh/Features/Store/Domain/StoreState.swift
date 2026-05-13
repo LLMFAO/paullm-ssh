@@ -39,11 +39,11 @@ enum RestoreState: Equatable {
 }
 
 enum paullm_sshProducts {
-    static let proMonthly = "com.vivy.vivyterm.pro.monthly"
-    static let proYearly = "com.vivy.vivyterm.pro.yearly"
-    static let proLifetime = "com.vivy.vivyterm.pro.lifetime"
+    static let proMonthly = "app.paullm.ssh.pro.monthly"
+    static let proYearly = "app.paullm.ssh.pro.yearly"
+    static let proLifetime = "app.paullm.ssh.pro.lifetime"
 
-    static let subscriptionGroupId = "vivyterm_pro"
+    static let subscriptionGroupId = "paullm_pro"
     static let allProducts = [proMonthly, proYearly, proLifetime]
 }
 

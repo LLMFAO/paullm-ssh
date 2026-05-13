@@ -92,7 +92,7 @@ actor TerminalRichPasteCoordinator {
             return false
         }
 
-        let sentinel = "__vvterm_clipboard_seeded__"
+        let sentinel = "__paullm_clipboard_seeded__"
         let wrappedCommand = RemoteTerminalBootstrap.wrapPOSIXShellCommand(
             "if \(clipboardCommand) >/dev/null 2>&1; then printf '%s' \(RemoteTerminalBootstrap.shellQuoted(sentinel)); fi"
         )

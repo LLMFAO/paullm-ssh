@@ -1,4 +1,3 @@
-import StoreKit
 import Foundation
 import Combine
 
@@ -14,12 +13,12 @@ final class StoreManager: ObservableObject {
     @Published var purchaseState: PurchaseState = .idle
     @Published var restoreState: RestoreState = .idle
     @Published var subscriptionStatus: Any? = nil
-    @Published var products: [Product] = []
+    @Published var products: [Any] = []
     @Published var lastPurchasedProductId: String? = nil
 
-    var monthlyProduct: Product? { products.first { $0.id == paullm_sshProducts.proMonthly } }
-    var yearlyProduct: Product? { products.first { $0.id == paullm_sshProducts.proYearly } }
-    var lifetimeProduct: Product? { products.first { $0.id == paullm_sshProducts.proLifetime } }
+    var monthlyProduct: Any? { nil }
+    var yearlyProduct: Any? { nil }
+    var lifetimeProduct: Any? { nil }
 
     private init() {}
 

@@ -8,7 +8,7 @@ final class CloudKitSyncCoordinator {
 
     private let cloudKit = CloudKitManager.shared
     private let logger = Logger(
-        subsystem: Bundle.main.bundleIdentifier ?? "app.vivy.vvterm",
+        subsystem: Bundle.main.bundleIdentifier ?? "app.paullm.ssh",
         category: "CloudKitSyncCoordinator"
     )
     private let queue = PendingCloudKitSyncQueue()

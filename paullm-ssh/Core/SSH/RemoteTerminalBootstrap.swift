@@ -12,7 +12,7 @@ enum RemoteShellLaunchPlan: Hashable, Sendable {
 
 enum RemoteTerminalBootstrap {
     nonisolated static let terminalType = "xterm-256color"
-    nonisolated static let termProgram = "vvterm"
+    nonisolated static let termProgram = "paullm"
 
     nonisolated static func appVersion(bundle: Bundle = .main) -> String {
         (bundle.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "unknown"

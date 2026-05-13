@@ -142,7 +142,7 @@ struct ServerFormSheet: View {
     @State private var notes: String = ""
     @State private var requiresBiometricUnlock: Bool = false
     @State private var tmuxEnabled: Bool = true
-    @State private var tmuxStartupBehavior: TmuxStartupBehavior = .vvtermManaged
+    @State private var tmuxStartupBehavior: TmuxStartupBehavior = .paullmManaged
 
     @State private var showingCreateWorkspace = false
     @State private var showingAddKeySheet = false

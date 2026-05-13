@@ -14,8 +14,8 @@ actor RemoteTmuxManager {
 
     static let shared = RemoteTmuxManager()
 
-    private let configDirectory = "~/.vvterm"
-    private let configPath = "~/.vvterm/tmux.conf"
+    private let configDirectory = "~/.paullm"
+    private let configPath = "~/.paullm/tmux.conf"
     private let availabilityTimeout: Duration = .seconds(8)
     private let listTimeout: Duration = .seconds(12)
     private let configTimeout: Duration = .seconds(20)
@@ -26,7 +26,7 @@ actor RemoteTmuxManager {
     private init() {}
 
     func isTmuxAvailable(using client: SSHClient) async -> Bool {
-        let okMarker = "__VVTERM_TMUX_OK__"
+        let okMarker = "__PAULLM_TMUX_OK__"
         let command = tmuxAvailabilityProbeCommand(okMarker: okMarker)
         let output = try? await client.execute(command, timeout: availabilityTimeout)
         return output?.contains(okMarker) == true
@@ -166,7 +166,7 @@ actor RemoteTmuxManager {
         let body = """
         \(RemoteTerminalBootstrap.shellPathExport());
         if command -v tmux >/dev/null 2>&1; then
-          tmux list-sessions -F '#{session_name} #{session_attached}' 2>/dev/null | awk '$1 ~ /^vvterm_[0-9a-fA-F-]+$/ && $2 == 0 { print $1 }' | while IFS= read -r name; do
+          tmux list-sessions -F '#{session_name} #{session_attached}' 2>/dev/null | awk '$1 ~ /^paullm_[0-9a-fA-F-]+$/ && $2 == 0 { print $1 }' | while IFS= read -r name; do
             tmux kill-session -t "$name" 2>/dev/null || true;
           done;
         fi
@@ -176,7 +176,7 @@ actor RemoteTmuxManager {
     }
 
     func cleanupDetachedSessions(deviceId: String, keeping sessionNames: Set<String>, using client: SSHClient) async {
-        let prefix = "vvterm_\(deviceId)_"
+        let prefix = "paullm_\(deviceId)_"
         let keep = sessionNames
         let sessions = await listSessions(using: client)
 
@@ -285,22 +285,22 @@ actor RemoteTmuxManager {
     nonisolated func tmuxAvailabilityProbeCommand(okMarker: String) -> String {
         let body = """
         \(RemoteTerminalBootstrap.shellPathExport());
-        VVTERM_TMUX_BIN="";
+        PAULLM_TMUX_BIN="";
         if command -v tmux >/dev/null 2>&1; then
-          VVTERM_TMUX_BIN="$(command -v tmux 2>/dev/null)";
+          PAULLM_TMUX_BIN="$(command -v tmux 2>/dev/null)";
         fi;
-        if [ -z "$VVTERM_TMUX_BIN" ]; then
+        if [ -z "$PAULLM_TMUX_BIN" ]; then
           for candidate in /usr/bin/tmux /bin/tmux /usr/local/bin/tmux /opt/local/bin/tmux /snap/bin/tmux; do
             if [ -x "$candidate" ]; then
-              VVTERM_TMUX_BIN="$candidate";
+              PAULLM_TMUX_BIN="$candidate";
               break;
             fi;
           done;
         fi;
-        if [ -n "$VVTERM_TMUX_BIN" ] && "$VVTERM_TMUX_BIN" -V >/dev/null 2>&1; then
+        if [ -n "$PAULLM_TMUX_BIN" ] && "$PAULLM_TMUX_BIN" -V >/dev/null 2>&1; then
           printf '\(okMarker)';
         else
-          printf '__VVTERM_TMUX_NO__';
+          printf '__PAULLM_TMUX_NO__';
         fi
         """
         return "sh -c \(RemoteTerminalBootstrap.shellQuoted(body))"

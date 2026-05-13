@@ -158,7 +158,7 @@ struct RemoteFileBrowserScreen: View {
     }
 
     var remoteRowDropTypeIdentifiers: [String] {
-        [UTType.vvtermRemoteFileEntry.identifier, UTType.fileURL.identifier]
+        [UTType.paullmRemoteFileEntry.identifier, UTType.fileURL.identifier]
     }
 
     var effectiveThemeName: String {
@@ -1234,7 +1234,7 @@ struct RemoteFileBrowserScreen: View {
 
     func handleRemoteDrop(_ providers: [NSItemProvider], to destinationPath: String) -> Bool {
         let remoteProviders = providers.filter { provider in
-            provider.hasItemConformingToTypeIdentifier(UTType.vvtermRemoteFileEntry.identifier)
+            provider.hasItemConformingToTypeIdentifier(UTType.paullmRemoteFileEntry.identifier)
         }
         guard !remoteProviders.isEmpty else { return false }
 
@@ -1272,7 +1272,7 @@ struct RemoteFileBrowserScreen: View {
             try JSONEncoder().encode(RemoteFileDragPayload(serverId: server.id, entries: entries))
         }
         provider.registerDataRepresentation(
-            forTypeIdentifier: UTType.vvtermRemoteFileEntry.identifier,
+            forTypeIdentifier: UTType.paullmRemoteFileEntry.identifier,
             visibility: .ownProcess
         ) { completion in
             do {
@@ -1422,7 +1422,7 @@ struct RemoteFileBrowserScreen: View {
 
     func loadDroppedRemotePayload(from provider: NSItemProvider) async throws -> RemoteFileDragPayload {
         try await withCheckedThrowingContinuation { continuation in
-            provider.loadDataRepresentation(forTypeIdentifier: UTType.vvtermRemoteFileEntry.identifier) { data, error in
+            provider.loadDataRepresentation(forTypeIdentifier: UTType.paullmRemoteFileEntry.identifier) { data, error in
                 if let error {
                     continuation.resume(throwing: error)
                     return

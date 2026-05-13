@@ -54,7 +54,7 @@ final class TmuxAttachResolver {
     // MARK: - Session Naming
 
     func managedSessionName(for entityId: UUID) -> String {
-        "vvterm_\(DeviceIdentity.id)_\(entityId.uuidString)"
+        "paullm_\(DeviceIdentity.id)_\(entityId.uuidString)"
     }
 
     func sessionName(for entityId: UUID) -> String {
@@ -122,7 +122,7 @@ final class TmuxAttachResolver {
         let behavior = tmuxStartupBehavior(for: serverId)
 
         switch behavior {
-        case .vvtermManaged:
+        case .paullmManaged:
             return .createManaged
         case .skipTmux:
             return .skipTmux
@@ -233,14 +233,14 @@ final class TmuxAttachResolver {
 
     func isInternalSessionName(_ name: String) -> Bool {
         let lowercased = name.lowercased()
-        return lowercased.hasPrefix("vvterm_")
-            || lowercased.hasPrefix("vvterm-")
-            || lowercased.hasPrefix("vivyterm_")
-            || lowercased.hasPrefix("vivyterm-")
+        return lowercased.hasPrefix("paullm_")
+            || lowercased.hasPrefix("paullm-")
+            || lowercased.hasPrefix("paullm_")
+            || lowercased.hasPrefix("paullm-")
     }
 
     func isCurrentDeviceManagedSessionName(_ name: String) -> Bool {
-        name.hasPrefix("vvterm_\(DeviceIdentity.id)_")
+        name.hasPrefix("paullm_\(DeviceIdentity.id)_")
     }
 
     // MARK: - Private

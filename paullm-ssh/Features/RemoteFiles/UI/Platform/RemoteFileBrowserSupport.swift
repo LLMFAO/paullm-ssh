@@ -260,7 +260,7 @@ struct RemoteFileDragPayload: Codable, Sendable {
 }
 
 extension UTType {
-    static let vvtermRemoteFileEntry = UTType(exportedAs: "app.vivy.vvterm.remote-file-entry")
+    static let paullmRemoteFileEntry = UTType(exportedAs: "app.paullm.ssh.remote-file-entry")
 }
 
 #if os(macOS)

@@ -23,11 +23,11 @@ actor CloudflareTransportManager {
         }
     }
 
-    private let callbackScheme = "vvterm-cfaccess"
+    private let callbackScheme = "paullm-cfaccess"
     private let userAgent = "paullm-ssh"
     private let discoveryTimeout: TimeInterval = 12
     private let disconnectTimeout: Duration = .seconds(4)
-    private let metadataKeychain = KeychainStore(service: "app.vivy.vvterm.cloudflare.metadata")
+    private let metadataKeychain = KeychainStore(service: "app.paullm.ssh.cloudflare.metadata")
     private let metadataStorageKey = "cache.v1"
     private var activeSession: SessionActor?
     private var metadataCache: [String: AccessMetadata] = [:]

@@ -4,8 +4,8 @@ import os
 
 actor RemoteMoshManager {
     static let shared = RemoteMoshManager()
-    private let logger = Logger(subsystem: "app.vivy.VivyTerm", category: "mosh-bootstrap")
-    private static let installSuccessMarker = "__VVTERM_MOSH_INSTALLED__"
+    private let logger = Logger(subsystem: "app.paullm.ssh", category: "mosh-bootstrap")
+    private static let installSuccessMarker = "__PAULLM_MOSH_INSTALLED__"
     private let availabilityTimeout: Duration = .seconds(8)
     private let bootstrapTimeout: Duration = .seconds(25)
     private let installTimeout: Duration = .seconds(180)
@@ -13,8 +13,8 @@ actor RemoteMoshManager {
     private init() {}
 
     func isMoshServerAvailable(using client: SSHClient) async -> Bool {
-        let okMarker = "__VVTERM_MOSH_OK__"
-        let body = "\(RemoteTerminalBootstrap.shellPathExport()); if command -v mosh-server >/dev/null 2>&1; then printf '\(okMarker)'; else printf '__VVTERM_MOSH_NO__'; fi"
+        let okMarker = "__PAULLM_MOSH_OK__"
+        let body = "\(RemoteTerminalBootstrap.shellPathExport()); if command -v mosh-server >/dev/null 2>&1; then printf '\(okMarker)'; else printf '__PAULLM_MOSH_NO__'; fi"
         let command = "sh -lc \(RemoteTerminalBootstrap.shellQuoted(body))"
         let output = try? await client.execute(command, timeout: availabilityTimeout)
         return output?.contains(okMarker) == true
@@ -123,20 +123,20 @@ actor RemoteMoshManager {
         else
           echo "Unsupported OS: $OS_NAME";
         fi;
-        if command -v mosh-server >/dev/null 2>&1; then printf '\(Self.installSuccessMarker)'; else printf '__VVTERM_MOSH_INSTALL_FAILED__'; fi
+        if command -v mosh-server >/dev/null 2>&1; then printf '\(Self.installSuccessMarker)'; else printf '__PAULLM_MOSH_INSTALL_FAILED__'; fi
         """
     }
 
     nonisolated func utf8LocaleExportScript() -> String {
         """
-        VVTERM_UTF8_LOCALE="";
+        PAULLM_UTF8_LOCALE="";
         if command -v locale >/dev/null 2>&1; then
-          VVTERM_UTF8_LOCALE="$(locale -a 2>/dev/null | awk 'BEGIN { IGNORECASE = 1 } /^(C\\\\.UTF-8|C\\\\.utf8|en_US\\\\.UTF-8|en_US\\\\.utf8|UTF-8|utf8)$/ { print; exit }')";
+          PAULLM_UTF8_LOCALE="$(locale -a 2>/dev/null | awk 'BEGIN { IGNORECASE = 1 } /^(C\\\\.UTF-8|C\\\\.utf8|en_US\\\\.UTF-8|en_US\\\\.utf8|UTF-8|utf8)$/ { print; exit }')";
         fi;
-        if [ -z "$VVTERM_UTF8_LOCALE" ]; then VVTERM_UTF8_LOCALE="C.UTF-8"; fi;
-        export LANG="$VVTERM_UTF8_LOCALE";
-        export LC_ALL="$VVTERM_UTF8_LOCALE";
-        export LC_CTYPE="$VVTERM_UTF8_LOCALE"
+        if [ -z "$PAULLM_UTF8_LOCALE" ]; then PAULLM_UTF8_LOCALE="C.UTF-8"; fi;
+        export LANG="$PAULLM_UTF8_LOCALE";
+        export LC_ALL="$PAULLM_UTF8_LOCALE";
+        export LC_CTYPE="$PAULLM_UTF8_LOCALE"
         """
     }
 }

@@ -106,7 +106,7 @@ final class MLXModelManager: NSObject, ObservableObject {
         // On iOS, use the app's documents directory
         let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         return documentsDir
-            .appendingPathComponent("vvterm", isDirectory: true)
+            .appendingPathComponent("paullm", isDirectory: true)
             .appendingPathComponent("models", isDirectory: true)
         #else
         // On macOS App Store builds, keep models inside the sandbox container.

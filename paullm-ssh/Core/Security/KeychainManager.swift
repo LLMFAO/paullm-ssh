@@ -13,7 +13,7 @@ final class KeychainManager {
     private var isSyncEnabled: Bool { SyncSettings.isEnabled }
 
     private init() {
-        store = KeychainStore(service: "app.vivy.vvterm")
+        store = KeychainStore(service: "app.paullm.ssh")
     }
 
     // MARK: - Password Operations
@@ -211,7 +211,7 @@ final class KeychainManager {
 
     // MARK: - Reusable SSH Keys (Keychain Library)
 
-    private let sshKeysIndexKey = "vvterm.sshkeys.index"
+    private let sshKeysIndexKey = "paullm.sshkeys.index"
 
     /// Get all stored SSH key entries (metadata only, not the actual keys)
     func getStoredSSHKeys() -> [SSHKeyEntry] {

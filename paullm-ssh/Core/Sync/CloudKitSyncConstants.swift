@@ -1,8 +1,8 @@
 import Foundation
 
 enum CloudKitSyncConstants {
-    static let appPrefix = "com.vivy.vvterm"
-    static let cloudKitContainerIdentifier = "iCloud.app.vivy.VivyTerm"
+    static let appPrefix = "app.paullm.ssh"
+    static let cloudKitContainerIdentifier = "iCloud.app.paullm.ssh"
     static let recordZoneName = "paullm-sshZone"
     static let databaseSubscriptionID = "database-changes"
 

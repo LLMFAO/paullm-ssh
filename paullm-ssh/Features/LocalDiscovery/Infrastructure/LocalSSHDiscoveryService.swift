@@ -171,7 +171,7 @@ final class LocalSSHDiscoveryService: NSObject {
 
             let endpoint = NWEndpoint.hostPort(host: NWEndpoint.Host(host), port: nwPort)
             let connection = NWConnection(to: endpoint, using: .tcp)
-            let queue = DispatchQueue(label: "com.vivy.vvterm.discovery.probe.\(host)")
+            let queue = DispatchQueue(label: "app.paullm.ssh.discovery.probe.\(host)")
             var completed = false
 
             let complete: (Bool) -> Void = { ready in
