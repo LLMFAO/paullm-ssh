@@ -81,6 +81,26 @@ final class TerminalTabManager: ObservableObject {
 
     private func setPaneTmuxStatus(_ status: TmuxStatus, for paneId: UUID) {
         paneStates[paneId]?.tmuxStatus = status
+        if status == .foreground || status == .background || status == .installing {
+            updateTabTitleWithTmuxSessionName(for: paneId)
+        }
+    }
+
+    private func updateTabTitleWithTmuxSessionName(for paneId: UUID) {
+        guard let state = paneStates[paneId] else { return }
+        let sessionName = tmuxResolver.sessionName(for: paneId)
+        guard !sessionName.isEmpty else { return }
+        guard var tabs = tabsByServer[state.serverId] else { return }
+        guard let tabIndex = tabs.firstIndex(where: { $0.allPaneIds.contains(paneId) }) else { return }
+        let baseTitle = tabs[tabIndex].title
+        let separator = " • "
+        if baseTitle.contains(separator) {
+            let prefix = baseTitle.split(separator: "•").first?.trimmingCharacters(in: .whitespaces) ?? baseTitle
+            tabs[tabIndex].title = "\(prefix)\(separator)\(sessionName)"
+        } else {
+            tabs[tabIndex].title = "\(baseTitle)\(separator)\(sessionName)"
+        }
+        tabsByServer[state.serverId] = tabs
     }
 
     private func paneWorkingDirectory(for paneId: UUID) -> String? {

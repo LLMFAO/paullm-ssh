@@ -146,6 +146,18 @@ final class ConnectionSessionManager: ObservableObject {
     private func setTmuxStatus(_ status: TmuxStatus, for sessionId: UUID) {
         guard let index = indexOfSession(sessionId) else { return }
         sessions[index].tmuxStatus = status
+        if status == .foreground || status == .background || status == .installing {
+            let sessionName = tmuxResolver.sessionName(for: sessionId)
+            guard !sessionName.isEmpty else { return }
+            let baseTitle = sessions[index].title
+            let separator = " • "
+            if baseTitle.contains(separator) {
+                let prefix = baseTitle.split(separator: "•").first?.trimmingCharacters(in: .whitespaces) ?? baseTitle
+                sessions[index].title = "\(prefix)\(separator)\(sessionName)"
+            } else {
+                sessions[index].title = "\(baseTitle)\(separator)\(sessionName)"
+            }
+        }
     }
 
     private func setTransport(
