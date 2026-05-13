@@ -162,15 +162,6 @@ actor RemoteTmuxManager {
         _ = try? await client.execute(command, timeout: killTimeout)
     }
 
-    func renameSession(from oldName: String, to newName: String, using client: SSHClient) async {
-        let quotedOld = RemoteTerminalBootstrap.shellQuoted(oldName)
-        let quotedNew = RemoteTerminalBootstrap.shellQuoted(newName)
-        let tmux = tmuxCommand(includeUTF8: false, includeConfig: false)
-        let body = "\(RemoteTerminalBootstrap.shellPathExport()); \(tmux) rename-session -t \(quotedOld) \(quotedNew) 2>/dev/null || true"
-        let command = "sh -lc \(RemoteTerminalBootstrap.shellQuoted(body))"
-        _ = try? await client.execute(command, timeout: .seconds(5))
-    }
-
     func cleanupLegacySessions(using client: SSHClient) async {
         let body = """
         \(RemoteTerminalBootstrap.shellPathExport());

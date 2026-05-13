@@ -1443,15 +1443,10 @@ actor ConnectionReliabilityManager {
         reconnectAttempts = 0
     }
 
-    // MARK: - Rename tmux Session
+    // MARK: - Rename tmux Session Label
 
-    func renameTmuxSession(_ sessionId: UUID, to newName: String) async {
+    func renameTmuxSession(_ sessionId: UUID, to newName: String) {
         guard !newName.isEmpty else { return }
-        guard let client = sshClient(forSessionId: sessionId) else { return }
-        let currentName = tmuxResolver.sessionName(for: sessionId)
-        guard currentName != newName else { return }
-
-        await RemoteTmuxManager.shared.renameSession(from: currentName, to: newName, using: client)
         tmuxResolver.setCustomSessionName(newName, for: sessionId)
 
         // Update connection session title

@@ -87,9 +87,7 @@ struct ConnectionTabsScrollView: View {
             Button("Cancel", role: .cancel) { }
             Button("Rename") {
                 if let sessionId = renameSessionId, !renameText.isEmpty {
-                    Task {
-                        await sessionManager.renameTmuxSession(sessionId, to: renameText)
-                    }
+                    sessionManager.renameTmuxSession(sessionId, to: renameText)
                 }
             }
         } message: {
