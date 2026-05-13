@@ -1442,4 +1442,31 @@ actor ConnectionReliabilityManager {
     func resetAttempts() {
         reconnectAttempts = 0
     }
+
+    // MARK: - Rename tmux Session
+
+    func renameTmuxSession(_ sessionId: UUID, to newName: String) async {
+        guard !newName.isEmpty else { return }
+        guard let client = sshClient(forSessionId: sessionId) else { return }
+        let currentName = tmuxResolver.sessionName(for: sessionId)
+        guard currentName != newName else { return }
+
+        await RemoteTmuxManager.shared.renameSession(from: currentName, to: newName, using: client)
+        tmuxResolver.setCustomSessionName(newName, for: sessionId)
+
+        // Update connection session title
+        if let index = indexOfSession(sessionId) {
+            let separator = " • "
+            let baseTitle = sessions[index].title
+            if let range = baseTitle.range(of: separator) {
+                let prefix = String(baseTitle[..<range.lowerBound])
+                sessions[index].title = prefix + separator + newName
+            } else {
+                sessions[index].title = baseTitle + separator + newName
+            }
+        }
+
+        // Update terminal tab title
+        TerminalTabManager.shared.updateTabTitleWithTmuxSessionName(for: sessionId)
+    }
 }

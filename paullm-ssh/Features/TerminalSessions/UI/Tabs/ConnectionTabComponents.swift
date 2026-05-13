@@ -16,6 +16,9 @@ struct ConnectionTabsScrollView: View {
 
     @State private var isNewTabHovering = false
     @State private var showingTabLimitAlert = false
+    @State private var showingRenameAlert = false
+    @State private var renameSessionId: UUID?
+    @State private var renameText = ""
 
     var body: some View {
         HStack(spacing: 4) {
@@ -79,6 +82,19 @@ struct ConnectionTabsScrollView: View {
             .padding(.trailing, 8)
         }
         .limitReachedAlert(.tabs, isPresented: $showingTabLimitAlert)
+        .alert("Rename tmux Session", isPresented: $showingRenameAlert) {
+            TextField("Session Name", text: $renameText)
+            Button("Cancel", role: .cancel) { }
+            Button("Rename") {
+                if let sessionId = renameSessionId, !renameText.isEmpty {
+                    Task {
+                        await sessionManager.renameTmuxSession(sessionId, to: renameText)
+                    }
+                }
+            }
+        } message: {
+            Text("Enter a custom name for this tmux session.")
+        }
     }
 
     @ViewBuilder
@@ -103,6 +119,14 @@ struct ConnectionTabsScrollView: View {
 
         Button("Duplicate Tab") {
             duplicateTab(session)
+        }
+
+        if session.tmuxStatus == .foreground || session.tmuxStatus == .background || session.tmuxStatus == .installing {
+            Button("Rename Session") {
+                renameSessionId = session.id
+                renameText = ""
+                showingRenameAlert = true
+            }
         }
     }
 

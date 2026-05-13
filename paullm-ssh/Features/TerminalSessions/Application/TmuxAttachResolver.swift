@@ -11,6 +11,16 @@ final class TmuxAttachResolver {
     var sessionNames: [UUID: String] = [:]
     var sessionOwnership: [UUID: SessionOwnership] = [:]
 
+    private let customSessionNamesKey = "paullm.customSessionNames"
+    private var customSessionNames: [String: String] {
+        get {
+            UserDefaults.standard.dictionary(forKey: customSessionNamesKey) as? [String: String] ?? [:]
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: customSessionNamesKey)
+        }
+    }
+
     private(set) var currentPrompt: TmuxAttachPrompt?
     private var promptQueue: [TmuxAttachPrompt] = []
     private var promptContinuations: [UUID: CheckedContinuation<TmuxAttachSelection, Never>] = [:]
@@ -58,7 +68,19 @@ final class TmuxAttachResolver {
     }
 
     func sessionName(for entityId: UUID) -> String {
-        sessionNames[entityId] ?? managedSessionName(for: entityId)
+        if let custom = customSessionNames[entityId.uuidString] {
+            return custom
+        }
+        return sessionNames[entityId] ?? managedSessionName(for: entityId)
+    }
+
+    func setCustomSessionName(_ name: String?, for entityId: UUID) {
+        if let name, !name.isEmpty {
+            customSessionNames[entityId.uuidString] = name
+            sessionNames[entityId] = name
+        } else {
+            customSessionNames.removeValue(forKey: entityId.uuidString)
+        }
     }
 
     // MARK: - Attachment State

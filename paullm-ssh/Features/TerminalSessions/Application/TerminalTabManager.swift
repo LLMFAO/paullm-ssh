@@ -86,7 +86,7 @@ final class TerminalTabManager: ObservableObject {
         }
     }
 
-    private func updateTabTitleWithTmuxSessionName(for paneId: UUID) {
+    func updateTabTitleWithTmuxSessionName(for paneId: UUID) {
         guard let state = paneStates[paneId] else { return }
         let sessionName = tmuxResolver.sessionName(for: paneId)
         guard !sessionName.isEmpty else { return }
