@@ -1260,10 +1260,6 @@ struct iOSTerminalView: View {
 
     @ToolbarContentBuilder
     private var navigationToolbar: some ToolbarContent {
-        ToolbarItem(placement: .navigationBarLeading) {
-            navigationBackButton
-        }
-
         ToolbarItem(placement: .principal) {
             if let serverId = currentServerId ?? selectedSession?.serverId ?? selectedServer?.id ?? connectingServer?.id {
                 iOSNativeSegmentedPicker(
@@ -1322,15 +1318,6 @@ struct iOSTerminalView: View {
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
-        }
-    }
-
-    private var navigationBackButton: some View {
-        Button {
-            dismissKeyboardForCurrentSession()
-            onBack()
-        } label: {
-            Image(systemName: "chevron.left")
         }
     }
 

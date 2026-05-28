@@ -1358,6 +1358,26 @@ extension ConnectionSessionManager {
             clearTmuxRuntimeState(for: sessionId)
         }
     }
+
+    // MARK: - Rename tmux Session Label
+
+    func renameTmuxSession(_ sessionId: UUID, to newName: String) {
+        guard !newName.isEmpty else { return }
+        tmuxResolver.setCustomSessionName(newName, for: sessionId)
+
+        if let index = indexOfSession(sessionId) {
+            let separator = " • "
+            let baseTitle = sessions[index].title
+            if let range = baseTitle.range(of: separator) {
+                let prefix = String(baseTitle[..<range.lowerBound])
+                sessions[index].title = prefix + separator + newName
+            } else {
+                sessions[index].title = baseTitle + separator + newName
+            }
+        }
+
+        TerminalTabManager.shared.updateTabTitleWithTmuxSessionName(for: sessionId)
+    }
 }
 
 #if DEBUG
@@ -1441,27 +1461,5 @@ actor ConnectionReliabilityManager {
 
     func resetAttempts() {
         reconnectAttempts = 0
-    }
-
-    // MARK: - Rename tmux Session Label
-
-    func renameTmuxSession(_ sessionId: UUID, to newName: String) {
-        guard !newName.isEmpty else { return }
-        tmuxResolver.setCustomSessionName(newName, for: sessionId)
-
-        // Update connection session title
-        if let index = indexOfSession(sessionId) {
-            let separator = " • "
-            let baseTitle = sessions[index].title
-            if let range = baseTitle.range(of: separator) {
-                let prefix = String(baseTitle[..<range.lowerBound])
-                sessions[index].title = prefix + separator + newName
-            } else {
-                sessions[index].title = baseTitle + separator + newName
-            }
-        }
-
-        // Update terminal tab title
-        TerminalTabManager.shared.updateTabTitleWithTmuxSessionName(for: sessionId)
     }
 }

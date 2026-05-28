@@ -2969,7 +2969,7 @@ private class TerminalInputAccessoryView: UIInputView {
 
     private func terminalKey(for actionID: TerminalAccessorySystemActionID) -> TerminalKey? {
         switch actionID {
-        case .commandModifier: return nil
+        case .commandModifier, .openInputBuffer: return nil
         case .escape: return .escape
         case .tab: return .tab
         case .shiftTab: return .tab.withShift()
