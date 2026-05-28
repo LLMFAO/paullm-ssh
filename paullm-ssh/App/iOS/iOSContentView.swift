@@ -45,43 +45,17 @@ struct iOSContentView: View {
                 selectedEnvironment: $selectedEnvironment,
                 showingTerminal: $showingTerminal,
                 onServerSelected: { server in
-                    Task {
-                        await MainActor.run {
-                            selectedServer = server
-                            connectingServer = server
-                            isConnecting = true
-                            showingTerminal = true
-                            sessionManager.selectedViewByServer[server.id] = preferredConnectViewId
-                        }
+                    selectedServer = server
+                    connectingServer = server
+                    isConnecting = false
+                    showingTerminal = true
+                    sessionManager.selectedViewByServer[server.id] = preferredConnectViewId
 
-                        do {
-                            let session = try await sessionManager.openConnection(to: server)
-                            await MainActor.run {
-                                sessionManager.selectedViewByServer[server.id] = preferredConnectViewId
-                                sessionManager.selectedSessionId = session.id
-                                isConnecting = false
-                                connectingServer = nil
-                            }
-                        } catch let error as paullm_sshError {
-                            await MainActor.run {
-                                isConnecting = false
-                                connectingServer = nil
-                                showingTerminal = false
-
-                                switch error {
-                                case .serverLocked(let name):
-                                    lockedServerName = name
-                                default:
-                                    break
-                                }
-                            }
-                        } catch {
-                            await MainActor.run {
-                                isConnecting = false
-                                connectingServer = nil
-                                showingTerminal = false
-                            }
-                        }
+                    if let selectedSessionId = sessionManager.selectedSessionByServer[server.id],
+                       sessionManager.sessions.contains(where: { $0.id == selectedSessionId }) {
+                        sessionManager.selectedSessionId = selectedSessionId
+                    } else if let firstSession = sessionManager.sessions.first(where: { $0.serverId == server.id }) {
+                        sessionManager.selectedSessionId = firstSession.id
                     }
                 }
             )
@@ -748,6 +722,7 @@ struct iOSTerminalView: View {
     @State private var pendingCloseSession: ConnectionSession?
     @State private var showingZenPanel = false
     @State private var requestedTerminalDismissal = false
+    @State private var showingNewTerminalSessionPicker = false
 
     @SceneStorage("paullm.zenMode.ios") private var isZenModeEnabled = false
 
@@ -1090,6 +1065,20 @@ struct iOSTerminalView: View {
                 SettingsView()
                     .modifier(AppearanceModifier())
             }
+            .sheet(isPresented: $showingNewTerminalSessionPicker) {
+                if let server = selectedServer {
+                    NewTerminalSessionPicker(
+                        server: server,
+                        onCancel: {
+                            showingNewTerminalSessionPicker = false
+                        },
+                        onCreate: { startup in
+                            showingNewTerminalSessionPicker = false
+                            createNewTerminalSession(on: server, startup: startup)
+                        }
+                    )
+                }
+            }
             .sheet(item: $serverToEdit) { server in
                 NavigationStack {
                     ServerFormSheet(
@@ -1430,9 +1419,13 @@ struct iOSTerminalView: View {
             showingTabLimitAlert = true
             return
         }
+        showingNewTerminalSessionPicker = true
+    }
+
+    private func createNewTerminalSession(on server: Server, startup: TerminalSessionStartup) {
         Task {
             do {
-                let session = try await sessionManager.openConnection(to: server, forceNew: true)
+                let session = try await sessionManager.openConnection(to: server, forceNew: true, startup: startup)
                 await MainActor.run {
                     sessionManager.selectedViewByServer[server.id] = viewTabConfig.isTabVisible(ConnectionViewTab.terminal.id)
                         ? ConnectionViewTab.terminal.id
@@ -1902,6 +1895,9 @@ private struct iOSTerminalTabButton: View {
             Circle()
                 .fill(statusColor)
                 .frame(width: 6, height: 6)
+            TerminalSessionKindBadge(startup: session.startup, showTitle: false)
+                .font(.caption)
+                .foregroundStyle(.secondary)
             Text(session.title)
                 .font(.callout)
                 .lineLimit(1)

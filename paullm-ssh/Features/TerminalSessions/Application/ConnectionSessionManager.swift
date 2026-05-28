@@ -210,7 +210,11 @@ final class ConnectionSessionManager: ObservableObject {
     /// - Parameters:
     ///   - server: The server to connect to
     ///   - forceNew: If true, always creates a new tab even if one exists for this server
-    func openConnection(to server: Server, forceNew: Bool = false) async throws -> ConnectionSession {
+    func openConnection(
+        to server: Server,
+        forceNew: Bool = false,
+        startup: TerminalSessionStartup? = nil
+    ) async throws -> ConnectionSession {
         // Check if server is locked due to downgrade
         if ServerManager.shared.isServerLocked(server) {
             throw paullm_sshError.serverLocked(server.name)
@@ -256,10 +260,11 @@ final class ConnectionSessionManager: ObservableObject {
         // Create new session - actual SSH connection happens in SSHTerminalWrapper
         let session = ConnectionSession(
             serverId: server.id,
-            title: server.name,
+            title: startup?.displayTitle ?? server.name,
             connectionState: .connecting,  // Will connect when terminal view appears
             tmuxStatus: tmuxResolver.isTmuxEnabled(for: server.id) ? .unknown : .off,
-            workingDirectory: sourceWorkingDirectory
+            workingDirectory: sourceWorkingDirectory,
+            startup: startup
         )
 
         sessions.append(session)
@@ -1019,6 +1024,7 @@ private struct ConnectionSessionsSnapshot: Codable {
         let autoReconnect: Bool
         let parentSessionId: UUID?
         let workingDirectory: String?
+        let startup: TerminalSessionStartup?
 
         init(from session: ConnectionSession) {
             self.id = session.id
@@ -1029,6 +1035,7 @@ private struct ConnectionSessionsSnapshot: Codable {
             self.autoReconnect = session.autoReconnect
             self.parentSessionId = session.parentSessionId
             self.workingDirectory = session.workingDirectory
+            self.startup = session.startup
         }
 
         func toSession() -> ConnectionSession {
@@ -1042,6 +1049,7 @@ private struct ConnectionSessionsSnapshot: Codable {
                 terminalSurfaceId: nil,
                 autoReconnect: autoReconnect,
                 workingDirectory: workingDirectory,
+                startup: startup,
                 parentSessionId: parentSessionId
             )
         }
@@ -1199,19 +1207,26 @@ extension ConnectionSessionManager {
     private func tmuxStartupCommand(
         for sessionId: UUID,
         selection: TmuxAttachSelection,
-        workingDirectory: String
+        workingDirectory: String,
+        initialCommand: String?
     ) -> String? {
         switch selection {
         case .skipTmux:
-            return nil
+            return initialCommand
         case .createManaged:
             return RemoteTmuxManager.shared.attachCommand(
                 sessionName: tmuxResolver.sessionName(for: sessionId),
-                workingDirectory: workingDirectory
+                workingDirectory: workingDirectory,
+                initialCommand: initialCommand
             )
         case .attachExisting(let sessionName):
             return RemoteTmuxManager.shared.attachExistingCommand(sessionName: sessionName)
         }
+    }
+
+    private func startupCommand(for sessionId: UUID) -> String? {
+        let trimmed = sessionWithID(sessionId)?.startup?.command?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private func handleTmuxLifecycle(
@@ -1252,7 +1267,8 @@ extension ConnectionSessionManager {
         guard let rebuilt = tmuxResolver.buildAttachExecCommand(
             for: sessionId,
             selection: selection,
-            workingDirectory: workingDirectory
+            workingDirectory: workingDirectory,
+            initialCommand: startupCommand(for: sessionId)
         ) else {
             return
         }
@@ -1267,18 +1283,18 @@ extension ConnectionSessionManager {
     ) async -> (command: String?, skipTmuxLifecycle: Bool) {
         guard tmuxResolver.isTmuxEnabled(for: serverId) else {
             disableTmuxAttachment(for: sessionId, status: .off)
-            return (nil, true)
+            return (startupCommand(for: sessionId), true)
         }
 
         guard await client.supportsTmuxRuntime() else {
             disableTmuxAttachment(for: sessionId, status: .off)
-            return (nil, true)
+            return (startupCommand(for: sessionId), true)
         }
 
         let tmuxAvailable = await RemoteTmuxManager.shared.isTmuxAvailable(using: client)
         guard tmuxAvailable else {
             disableTmuxAttachment(for: sessionId, status: .missing)
-            return (nil, true)
+            return (startupCommand(for: sessionId), true)
         }
 
         let selection = await tmuxResolver.resolveSelection(
@@ -1288,14 +1304,22 @@ extension ConnectionSessionManager {
 
         if case .skipTmux = selection {
             updateTmuxStatus(sessionId, status: .off)
-            return (nil, true)
+            return (startupCommand(for: sessionId), true)
         }
 
         await runTmuxCleanupIfNeeded(for: serverId, sessionId: sessionId, selection: selection, using: client)
         await prepareActiveTmuxSession(for: sessionId, using: client)
 
         let workingDirectory = await resolveTmuxWorkingDirectory(for: sessionId, using: client)
-        return (tmuxStartupCommand(for: sessionId, selection: selection, workingDirectory: workingDirectory), true)
+        return (
+            tmuxStartupCommand(
+                for: sessionId,
+                selection: selection,
+                workingDirectory: workingDirectory,
+                initialCommand: startupCommand(for: sessionId)
+            ),
+            true
+        )
     }
 
     func startTmuxInstall(for sessionId: UUID) async {

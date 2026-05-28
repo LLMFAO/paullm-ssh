@@ -39,6 +39,8 @@ struct ConnectionTerminalContainer: View {
     @State private var showingTabLimitAlert = false
     @State private var showingFileTabLimitAlert = false
     @State private var showingZenPanel = false
+    @State private var showingNewTerminalSessionPicker = false
+    @State private var selectTerminalAfterNewSession = false
     #if os(macOS)
     @State private var zenWindowSafeAreaInsets = EdgeInsets()
     #endif
@@ -217,6 +219,19 @@ struct ConnectionTerminalContainer: View {
                     }
                 )
             }
+            .sheet(isPresented: $showingNewTerminalSessionPicker) {
+                NewTerminalSessionPicker(
+                    server: server,
+                    onCancel: {
+                        selectTerminalAfterNewSession = false
+                        showingNewTerminalSessionPicker = false
+                    },
+                    onCreate: { startup in
+                        showingNewTerminalSessionPicker = false
+                        createNewTerminalSession(startup: startup)
+                    }
+                )
+            }
     }
 
     @ViewBuilder
@@ -318,15 +333,21 @@ struct ConnectionTerminalContainer: View {
             return
         }
 
+        selectTerminalAfterNewSession = selectTerminalViewOnSuccess
+        showingNewTerminalSessionPicker = true
+    }
+
+    private func createNewTerminalSession(startup: TerminalSessionStartup) {
         Task {
             do {
-                let tab = try await tabManager.openTab(for: server)
+                let tab = try await tabManager.openTab(for: server, startup: startup)
                 await MainActor.run {
-                    if selectTerminalViewOnSuccess {
+                    if selectTerminalAfterNewSession {
                         tabManager.selectedViewByServer[server.id] = viewTabConfig.isTabVisible(ConnectionViewTab.terminal.id)
                             ? ConnectionViewTab.terminal.id
                             : viewTabConfig.effectiveDefaultTab()
                     }
+                    selectTerminalAfterNewSession = false
                     selectedTabIdBinding.wrappedValue = tab.id
                 }
             } catch {
@@ -1199,6 +1220,10 @@ struct TerminalTabButton: View {
                 Circle()
                     .fill(statusColor)
                     .frame(width: 6, height: 6)
+
+                TerminalSessionKindBadge(startup: tab.startup, showTitle: false)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 // Title
                 Text(tab.title)

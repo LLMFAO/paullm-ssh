@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import MoshBootstrap
-@testable import paullm-ssh
+@testable import paullm_ssh
 
 struct RemoteMoshManagerTests {
     @Test

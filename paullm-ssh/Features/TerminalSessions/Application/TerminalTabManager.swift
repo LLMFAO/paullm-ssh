@@ -157,7 +157,7 @@ final class TerminalTabManager: ObservableObject {
 
     /// Open a new tab for a server
     @discardableResult
-    func openTab(for server: Server) async throws -> TerminalTab {
+    func openTab(for server: Server, startup: TerminalSessionStartup? = nil) async throws -> TerminalTab {
         if tabOpensInFlight.contains(server.id) {
             throw paullm_sshError.connectionFailed(
                 String(localized: "A tab is already opening for this server.")
@@ -170,7 +170,11 @@ final class TerminalTabManager: ObservableObject {
             throw paullm_sshError.authenticationFailed
         }
 
-        let tab = TerminalTab(serverId: server.id, title: server.name)
+        let tab = TerminalTab(
+            serverId: server.id,
+            title: startup?.displayTitle ?? server.name,
+            startup: startup
+        )
 
         let sourcePaneId = selectedTab(for: server.id)?.focusedPaneId
         let sourceWorkingDirectory = sourcePaneId
@@ -185,6 +189,7 @@ final class TerminalTabManager: ObservableObject {
         )
         rootState.workingDirectory = sourceWorkingDirectory
         rootState.seedPaneId = sourcePaneId
+        rootState.startup = startup
         rootState.tmuxStatus = tmuxResolver.isTmuxEnabled(for: server.id) ? .unknown : .off
         paneStates[tab.rootPaneId] = rootState
 
@@ -707,19 +712,26 @@ final class TerminalTabManager: ObservableObject {
     private func tmuxStartupCommand(
         for paneId: UUID,
         selection: TmuxAttachSelection,
-        workingDirectory: String
+        workingDirectory: String,
+        initialCommand: String?
     ) -> String? {
         switch selection {
         case .skipTmux:
-            return nil
+            return initialCommand
         case .createManaged:
             return RemoteTmuxManager.shared.attachCommand(
                 sessionName: tmuxResolver.sessionName(for: paneId),
-                workingDirectory: workingDirectory
+                workingDirectory: workingDirectory,
+                initialCommand: initialCommand
             )
         case .attachExisting(let sessionName):
             return RemoteTmuxManager.shared.attachExistingCommand(sessionName: sessionName)
         }
+    }
+
+    private func startupCommand(for paneId: UUID) -> String? {
+        let trimmed = paneStates[paneId]?.startup?.command?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private func resolveTmuxWorkingDirectory(for paneId: UUID, using client: SSHClient) async -> String {
@@ -820,7 +832,8 @@ final class TerminalTabManager: ObservableObject {
         guard let command = tmuxResolver.buildAttachExecCommand(
             for: paneId,
             selection: selection,
-            workingDirectory: workingDirectory
+            workingDirectory: workingDirectory,
+            initialCommand: startupCommand(for: paneId)
         ) else {
             return
         }
@@ -835,18 +848,18 @@ final class TerminalTabManager: ObservableObject {
     ) async -> (command: String?, skipTmuxLifecycle: Bool) {
         guard tmuxResolver.isTmuxEnabled(for: serverId) else {
             disableTmuxAttachment(for: paneId, status: .off)
-            return (nil, true)
+            return (startupCommand(for: paneId), true)
         }
 
         guard await client.supportsTmuxRuntime() else {
             disableTmuxAttachment(for: paneId, status: .off)
-            return (nil, true)
+            return (startupCommand(for: paneId), true)
         }
 
         let tmuxAvailable = await RemoteTmuxManager.shared.isTmuxAvailable(using: client)
         guard tmuxAvailable else {
             disableTmuxAttachment(for: paneId, status: .missing)
-            return (nil, true)
+            return (startupCommand(for: paneId), true)
         }
 
         let selection = await tmuxResolver.resolveSelection(
@@ -856,14 +869,22 @@ final class TerminalTabManager: ObservableObject {
 
         if case .skipTmux = selection {
             updatePaneTmuxStatus(paneId, status: .off)
-            return (nil, true)
+            return (startupCommand(for: paneId), true)
         }
 
         await runTmuxCleanupIfNeeded(for: serverId, paneId: paneId, selection: selection, using: client)
         await prepareActiveTmuxPane(for: paneId, serverId: serverId, using: client)
 
         let workingDirectory = await resolveTmuxWorkingDirectory(for: paneId, using: client)
-        return (tmuxStartupCommand(for: paneId, selection: selection, workingDirectory: workingDirectory), true)
+        return (
+            tmuxStartupCommand(
+                for: paneId,
+                selection: selection,
+                workingDirectory: workingDirectory,
+                initialCommand: startupCommand(for: paneId)
+            ),
+            true
+        )
     }
 
     func startTmuxInstall(for paneId: UUID) async {
@@ -957,6 +978,9 @@ final class TerminalTabManager: ObservableObject {
                     if !tmuxResolver.isTmuxEnabled(for: tab.serverId) {
                         paneState.tmuxStatus = .off
                     }
+                    if paneId == tab.rootPaneId {
+                        paneState.startup = tab.startup
+                    }
                     restoredPaneStates[paneId] = paneState
                 }
             }
@@ -1039,6 +1063,7 @@ private struct TerminalTabsSnapshot: Codable {
         let layout: TerminalSplitNode?
         let focusedPaneId: UUID
         let rootPaneId: UUID
+        let startup: TerminalSessionStartup?
 
         init(from tab: TerminalTab) {
             self.id = tab.id
@@ -1048,6 +1073,7 @@ private struct TerminalTabsSnapshot: Codable {
             self.layout = tab.layout
             self.focusedPaneId = tab.focusedPaneId
             self.rootPaneId = tab.rootPaneId
+            self.startup = tab.startup
         }
 
         func toTerminalTab() -> TerminalTab {
@@ -1058,7 +1084,8 @@ private struct TerminalTabsSnapshot: Codable {
                 createdAt: createdAt,
                 rootPaneId: rootPaneId,
                 focusedPaneId: focusedPaneId,
-                layout: layout
+                layout: layout,
+                startup: startup
             )
         }
     }

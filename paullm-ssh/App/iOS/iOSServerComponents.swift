@@ -164,6 +164,10 @@ struct iOSActiveConnectionRow: View {
                     .fill(statusColor)
                     .frame(width: 8, height: 8)
 
+                TerminalSessionKindBadge(startup: session.startup, showTitle: false)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
                 // Connection info
                 VStack(alignment: .leading, spacing: 2) {
                     Text(session.title)

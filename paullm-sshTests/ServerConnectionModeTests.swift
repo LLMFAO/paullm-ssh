@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import paullm-ssh
+@testable import paullm_ssh
 
 struct ServerConnectionModeTests {
     private func makeServer(

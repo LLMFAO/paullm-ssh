@@ -61,7 +61,7 @@ struct TmuxAttachPromptSheet: View {
                             confirm(.attachExisting(sessionName: session.name))
                         } label: {
                             HStack(spacing: 10) {
-                                Image(systemName: "terminal")
+                                TerminalSessionKindBadge(startup: nil, showTitle: false)
                                     .foregroundStyle(.secondary)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(session.name)
@@ -96,7 +96,7 @@ struct TmuxAttachPromptSheet: View {
                             confirm(.attachExisting(sessionName: session.name))
                         } label: {
                             HStack(spacing: 10) {
-                                Image(systemName: "terminal")
+                                TerminalSessionKindBadge(startup: nil, showTitle: false)
                                     .foregroundStyle(.secondary)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(session.name)

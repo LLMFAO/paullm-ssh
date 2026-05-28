@@ -1,5 +1,5 @@
 import Testing
-@testable import paullm-ssh
+@testable import paullm_ssh
 
 struct TerminalHardwareTextInputRoutingPolicyTests {
     @Test

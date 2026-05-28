@@ -1,5 +1,5 @@
 import XCTest
-@testable import paullm-ssh
+@testable import paullm_ssh
 
 final class TerminalThemeStoragePathsTests: XCTestCase {
     func testCustomThemeFilePathEndsWithThemeName() {

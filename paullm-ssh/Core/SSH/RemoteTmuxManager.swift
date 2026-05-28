@@ -63,9 +63,14 @@ actor RemoteTmuxManager {
     nonisolated func attachCommand(
         sessionName: String,
         workingDirectory: String,
+        initialCommand: String? = nil,
         context: CommandContext = .startupExec
     ) -> String {
-        let body = attachOrCreateBody(sessionName: sessionName, workingDirectory: workingDirectory)
+        let body = attachOrCreateBody(
+            sessionName: sessionName,
+            workingDirectory: workingDirectory,
+            initialCommand: initialCommand
+        )
         return commandString(for: body, context: context)
     }
 
@@ -86,11 +91,13 @@ actor RemoteTmuxManager {
 
     nonisolated func attachExecCommand(
         sessionName: String,
-        workingDirectory: String
+        workingDirectory: String,
+        initialCommand: String? = nil
     ) -> String {
         attachCommand(
             sessionName: sessionName,
             workingDirectory: workingDirectory,
+            initialCommand: initialCommand,
             context: .interactiveShell
         )
     }
@@ -226,11 +233,13 @@ actor RemoteTmuxManager {
 
     nonisolated private func attachOrCreateBody(
         sessionName: String,
-        workingDirectory: String
+        workingDirectory: String,
+        initialCommand: String?
     ) -> String {
         let createCommand = createSessionCommand(
             sessionName: sessionName,
-            workingDirectory: workingDirectory
+            workingDirectory: workingDirectory,
+            initialCommand: initialCommand
         )
         return attachExistingBody(
             sessionName: sessionName,
@@ -260,12 +269,17 @@ actor RemoteTmuxManager {
 
     nonisolated private func createSessionCommand(
         sessionName: String,
-        workingDirectory: String
+        workingDirectory: String,
+        initialCommand: String?
     ) -> String {
         let escapedDir = shellDirectoryArgument(workingDirectory)
         let escapedSession = RemoteTerminalBootstrap.shellQuoted(sessionName)
         let tmux = tmuxCommand(includeUTF8: true, includeConfig: true)
-        return "exec \(tmux) new-session -A -s \(escapedSession) -c \(escapedDir)"
+        let trimmedInitialCommand = initialCommand?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !trimmedInitialCommand.isEmpty else {
+            return "exec \(tmux) new-session -A -s \(escapedSession) -c \(escapedDir)"
+        }
+        return "exec \(tmux) new-session -A -s \(escapedSession) -c \(escapedDir) \(RemoteTerminalBootstrap.shellQuoted(trimmedInitialCommand))"
     }
 
     nonisolated private func tmuxCommand(

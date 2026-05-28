@@ -202,15 +202,17 @@ final class TmuxAttachResolver {
     func buildAttachCommand(
         for entityId: UUID,
         selection: TmuxAttachSelection,
-        workingDirectory: String
+        workingDirectory: String,
+        initialCommand: String? = nil
     ) -> String? {
         switch selection {
         case .skipTmux:
-            return nil
+            return initialCommand
         case .createManaged:
             return RemoteTmuxManager.shared.attachCommand(
                 sessionName: sessionName(for: entityId),
                 workingDirectory: workingDirectory,
+                initialCommand: initialCommand,
                 context: .startupExec
             )
         case .attachExisting(let name):
@@ -224,15 +226,17 @@ final class TmuxAttachResolver {
     func buildAttachExecCommand(
         for entityId: UUID,
         selection: TmuxAttachSelection,
-        workingDirectory: String
+        workingDirectory: String,
+        initialCommand: String? = nil
     ) -> String? {
         switch selection {
         case .skipTmux:
-            return nil
+            return initialCommand
         case .createManaged:
             return RemoteTmuxManager.shared.attachExecCommand(
                 sessionName: sessionName(for: entityId),
-                workingDirectory: workingDirectory
+                workingDirectory: workingDirectory,
+                initialCommand: initialCommand
             )
         case .attachExisting(let name):
             return RemoteTmuxManager.shared.attachExistingExecCommand(sessionName: name)

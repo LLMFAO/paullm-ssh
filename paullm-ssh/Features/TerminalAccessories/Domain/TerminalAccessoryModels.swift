@@ -782,6 +782,40 @@ extension TerminalAccessoryProfile {
         TerminalAccessorySystemActionID.allCases.filter { $0 != .unknown }
     }
 
+    func ensuringDefaultStartupActions(now: Date = Date()) -> TerminalAccessoryProfile {
+        let existingActionIDs = Set(customActions.map(\.id))
+        var availableSlots = Self.maxCustomActions - customActions.filter { !$0.isDeleted }.count
+        guard availableSlots > 0 else { return self }
+
+        var nextProfile = self
+        var insertedAction = false
+        for definition in TerminalSessionStartupDefaults.definitions {
+            guard !existingActionIDs.contains(definition.id) else { continue }
+            guard availableSlots > 0 else { break }
+
+            nextProfile.customActions.append(
+                TerminalAccessoryCustomAction(
+                    id: definition.id,
+                    title: definition.title,
+                    kind: .command,
+                    commandContent: definition.baseCommand,
+                    commandSendMode: .insertAndEnter,
+                    shortcutKey: .a,
+                    shortcutModifiers: .none,
+                    updatedAt: now,
+                    deletedAt: nil
+                )
+            )
+            availableSlots -= 1
+            insertedAction = true
+        }
+
+        guard insertedAction else { return self }
+        nextProfile.updatedAt = max(updatedAt, now)
+        nextProfile.lastWriterDeviceId = DeviceIdentity.id
+        return nextProfile.normalized()
+    }
+
     func normalized() -> TerminalAccessoryProfile {
         var customActionsByID: [UUID: TerminalAccessoryCustomAction] = [:]
         for action in customActions {

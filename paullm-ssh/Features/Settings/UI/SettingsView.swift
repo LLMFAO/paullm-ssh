@@ -24,6 +24,7 @@ private extension View {
 enum SettingsSelection: Hashable {
     case general
     case terminal
+    case customActions
     case transcription
     case keychain
     case sync
@@ -48,6 +49,7 @@ struct SettingsView: View {
             List(selection: $selection) {
                 settingsRow("General", icon: "gear", tag: .general)
                 settingsRow("Terminal", icon: "terminal", tag: .terminal)
+                settingsRow("Custom Actions", icon: "command.square", tag: .customActions)
                 settingsRow("Transcription", icon: "waveform", tag: .transcription)
                 settingsRow("SSH Keys", icon: "key", tag: .keychain)
                 settingsRow("Sync", icon: "icloud", tag: .sync)
@@ -83,6 +85,14 @@ struct SettingsView: View {
                             .navigationBarTitleDisplayMode(.inline)
                     } label: {
                         Label("Terminal", systemImage: "terminal")
+                    }
+
+                    NavigationLink {
+                        TerminalCustomActionLibraryView()
+                            .navigationTitle("Custom Actions")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Label("Custom Actions", systemImage: "command.square")
                     }
 
                     NavigationLink {
@@ -148,6 +158,10 @@ struct SettingsView: View {
             TerminalSettingsView(fontName: $terminalFontName, fontSize: $terminalFontSize)
                 .navigationTitle("Terminal")
                 .navigationSubtitle(String(localized: "Font, theme, and connection settings"))
+        case .customActions:
+            TerminalCustomActionLibraryView()
+                .navigationTitle("Custom Actions")
+                .navigationSubtitle(String(localized: "Reusable terminal commands and shortcuts"))
         case .transcription:
             TranscriptionSettingsView()
                 .navigationTitle("Transcription")

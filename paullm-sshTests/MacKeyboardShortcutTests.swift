@@ -1,7 +1,7 @@
 #if os(macOS)
 import AppKit
 import Testing
-@testable import paullm-ssh
+@testable import paullm_ssh
 
 struct MacKeyboardShortcutTests {
     @Test

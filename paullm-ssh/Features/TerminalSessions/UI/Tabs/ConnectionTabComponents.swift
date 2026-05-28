@@ -137,7 +137,7 @@ struct ConnectionTabsScrollView: View {
             .first(where: { $0.id == session.id })
             .flatMap({ s in ServerManager.shared.servers.first { $0.id == s.serverId } })
         else { return }
-        Task { try? await sessionManager.openConnection(to: server, forceNew: true) }
+        Task { try? await sessionManager.openConnection(to: server, forceNew: true, startup: session.startup) }
     }
 }
 
@@ -171,6 +171,10 @@ struct ConnectionTabButton: View {
                 Circle()
                     .fill(statusColor)
                     .frame(width: 6, height: 6)
+
+                TerminalSessionKindBadge(startup: session.startup, showTitle: false)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
 
                 // Title
                 Text(session.title)

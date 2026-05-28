@@ -26,6 +26,7 @@ struct TerminalTab: Identifiable, Equatable, Codable {
 
     /// Root pane ID - the original pane created with this tab
     let rootPaneId: UUID
+    var startup: TerminalSessionStartup?
 
     init(
         id: UUID = UUID(),
@@ -34,7 +35,8 @@ struct TerminalTab: Identifiable, Equatable, Codable {
         createdAt: Date = Date(),
         rootPaneId: UUID = UUID(),
         focusedPaneId: UUID? = nil,
-        layout: TerminalSplitNode? = nil
+        layout: TerminalSplitNode? = nil,
+        startup: TerminalSessionStartup? = nil
     ) {
         self.id = id
         self.serverId = serverId
@@ -43,6 +45,7 @@ struct TerminalTab: Identifiable, Equatable, Codable {
         self.rootPaneId = rootPaneId
         self.focusedPaneId = focusedPaneId ?? rootPaneId
         self.layout = layout
+        self.startup = startup
     }
 
     /// All pane IDs in this tab (from layout or just root)
@@ -73,6 +76,7 @@ struct TerminalPaneState {
     var tmuxStatus: TmuxStatus
     var workingDirectory: String?
     var seedPaneId: UUID?
+    var startup: TerminalSessionStartup?
     /// Runtime transport for this pane (never persisted).
     var activeTransport: ShellTransport
     /// Set only when this pane is running over SSH fallback from Mosh.
@@ -87,6 +91,7 @@ struct TerminalPaneState {
         self.tmuxStatus = .unknown
         self.workingDirectory = nil
         self.seedPaneId = nil
+        self.startup = nil
         self.activeTransport = .ssh
         self.moshFallbackReason = nil
     }

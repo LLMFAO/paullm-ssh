@@ -293,7 +293,9 @@ final class TerminalAccessoryPreferencesManager: ObservableObject {
 
     private static func loadProfile(from defaults: UserDefaults) -> TerminalAccessoryProfile {
         guard let data = defaults.data(forKey: TerminalAccessoryProfile.defaultsKey) else {
-            let defaultProfile = TerminalAccessoryProfile.defaultValue.normalized()
+            let defaultProfile = TerminalAccessoryProfile.defaultValue
+                .ensuringDefaultStartupActions()
+                .normalized()
             if let encoded = try? JSONEncoder().encode(defaultProfile) {
                 defaults.set(encoded, forKey: TerminalAccessoryProfile.defaultsKey)
             }
@@ -302,13 +304,17 @@ final class TerminalAccessoryPreferencesManager: ObservableObject {
 
         do {
             let decoded = try JSONDecoder().decode(TerminalAccessoryProfile.self, from: data)
-            let normalized = decoded.normalized()
+            let normalized = decoded
+                .ensuringDefaultStartupActions()
+                .normalized()
             if normalized != decoded, let encoded = try? JSONEncoder().encode(normalized) {
                 defaults.set(encoded, forKey: TerminalAccessoryProfile.defaultsKey)
             }
             return normalized
         } catch {
-            let defaultProfile = TerminalAccessoryProfile.defaultValue.normalized()
+            let defaultProfile = TerminalAccessoryProfile.defaultValue
+                .ensuringDefaultStartupActions()
+                .normalized()
             if let encoded = try? JSONEncoder().encode(defaultProfile) {
                 defaults.set(encoded, forKey: TerminalAccessoryProfile.defaultsKey)
             }
