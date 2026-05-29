@@ -43,9 +43,9 @@ struct TerminalSessionKindIcon: View {
 
     private var renderingMode: Image.TemplateRenderingMode {
         switch kind {
-        case .antigravity, .codex:
+        case .claude, .antigravity, .codex:
             return .original
-        case .tmux, .claude, .opencode:
+        case .tmux, .opencode:
             return .template
         }
     }
