@@ -35,9 +35,18 @@ struct TerminalSessionKindIcon: View {
 
     var body: some View {
         Image(kind.iconAssetName)
-            .renderingMode(.template)
+            .renderingMode(renderingMode)
             .resizable()
             .scaledToFit()
             .frame(width: 16, height: 16)
+    }
+
+    private var renderingMode: Image.TemplateRenderingMode {
+        switch kind {
+        case .antigravity, .codex:
+            return .original
+        case .tmux, .claude, .opencode:
+            return .template
+        }
     }
 }
