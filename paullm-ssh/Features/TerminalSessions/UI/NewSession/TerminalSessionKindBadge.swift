@@ -8,10 +8,6 @@ struct TerminalSessionKindBadge: View {
         startup?.displayTitle ?? TerminalSessionKind.tmux.displayName
     }
 
-    private var iconSystemName: String {
-        startup?.iconSystemName ?? TerminalSessionKind.tmux.iconSystemName
-    }
-
     private var kind: TerminalSessionKind {
         startup?.kind ?? .tmux
     }
@@ -30,17 +26,18 @@ struct TerminalSessionKindBadge: View {
 
     @ViewBuilder
     private var iconView: some View {
-        if kind == .tmux {
-            ZStack {
-                Circle()
-                    .fill(Color.orange)
-                Text("u")
-                    .font(.system(size: 9, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-            }
+        TerminalSessionKindIcon(kind: kind)
+    }
+}
+
+struct TerminalSessionKindIcon: View {
+    let kind: TerminalSessionKind
+
+    var body: some View {
+        Image(kind.iconAssetName)
+            .renderingMode(.template)
+            .resizable()
+            .scaledToFit()
             .frame(width: 16, height: 16)
-        } else {
-            Image(systemName: iconSystemName)
-        }
     }
 }

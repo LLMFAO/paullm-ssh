@@ -38,6 +38,21 @@ enum TerminalSessionKind: String, Codable, CaseIterable, Identifiable, Hashable,
             return "curlybraces"
         }
     }
+
+    var iconAssetName: String {
+        switch self {
+        case .tmux:
+            return "SessionIconUbuntu"
+        case .claude:
+            return "SessionIconClaude"
+        case .antigravity:
+            return "SessionIconAntigravity"
+        case .codex:
+            return "SessionIconCodex"
+        case .opencode:
+            return "SessionIconOpenCode"
+        }
+    }
 }
 
 struct TerminalSessionStartup: Codable, Equatable, Hashable, Sendable {

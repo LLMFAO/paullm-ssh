@@ -32,7 +32,7 @@ struct NewTerminalSessionPicker: View {
                     sessionOptionRow(
                         title: TerminalSessionKind.tmux.displayName,
                         subtitle: String(localized: "Attach or create a tmux session"),
-                        iconSystemName: TerminalSessionKind.tmux.iconSystemName,
+                        kind: .tmux,
                         isSelected: selectedActionID == nil
                     ) {
                         selectedActionID = nil
@@ -43,7 +43,7 @@ struct NewTerminalSessionPicker: View {
                         sessionOptionRow(
                             title: definition.title,
                             subtitle: resolvedCommand(for: definition, bypassPermissions: bypassPermissions),
-                            iconSystemName: definition.kind.iconSystemName,
+                            kind: definition.kind,
                             isSelected: selectedActionID == definition.id
                         ) {
                             selectedActionID = definition.id
@@ -86,14 +86,13 @@ struct NewTerminalSessionPicker: View {
     private func sessionOptionRow(
         title: String,
         subtitle: String,
-        iconSystemName: String,
+        kind: TerminalSessionKind,
         isSelected: Bool,
         onSelect: @escaping () -> Void
     ) -> some View {
         Button(action: onSelect) {
             HStack(spacing: 12) {
-                Image(systemName: iconSystemName)
-                    .font(.system(size: 18, weight: .semibold))
+                TerminalSessionKindIcon(kind: kind)
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                     .frame(width: 26)
 
