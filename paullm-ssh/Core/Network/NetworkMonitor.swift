@@ -29,7 +29,7 @@ final class NetworkMonitor: ObservableObject {
 
     private let monitor: NWPathMonitor
     private let queue = DispatchQueue(label: "app.paullm.ssh.networkmonitor")
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "Network")
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "app.paullm.ssh", category: "Network")
 
     enum ConnectionType: String {
         case wifi = "WiFi"

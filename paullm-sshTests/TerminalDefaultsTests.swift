@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import paullm-ssh
+@testable import paullm_ssh
 
 struct TerminalDefaultsTests {
     private func makeDefaults(testName: String = #function) -> UserDefaults {
@@ -11,7 +11,7 @@ struct TerminalDefaultsTests {
     }
 
     @Test
-    func macOSDefaultsExposeMenloAndTwelvePointSize() throws {
+    func macOSDefaultsExposeMenloAndTwelvePointSize() {
         #if os(macOS)
         #expect(TerminalDefaults.defaultFontName == "Menlo")
         #expect(TerminalDefaults.defaultPrimaryFontName == "Menlo")
@@ -21,7 +21,7 @@ struct TerminalDefaultsTests {
             TerminalDefaults.macOSFallbackFontFamilies == ["Apple SD Gothic Neo", "JetBrainsMono Nerd Font"]
         )
         #else
-        throw Skip("macOS-only default font policy")
+        return
         #endif
     }
 
@@ -55,7 +55,7 @@ struct TerminalDefaultsTests {
     }
 
     @Test
-    func applyIfNeededPreservesCustomMacOSFontValues() throws {
+    func applyIfNeededPreservesCustomMacOSFontValues() {
         #if os(macOS)
         let defaults = makeDefaults()
 
@@ -67,12 +67,12 @@ struct TerminalDefaultsTests {
         #expect(defaults.string(forKey: TerminalDefaults.fontNameKey) == "Menlo")
         #expect(defaults.object(forKey: TerminalDefaults.fontSizeKey) as? Double == 15.0)
         #else
-        throw Skip("macOS-only migration policy")
+        return
         #endif
     }
 
     @Test
-    func applyIfNeededPreservesExactLegacyMacOSFontValues() throws {
+    func applyIfNeededPreservesExactLegacyMacOSFontValues() {
         #if os(macOS)
         let normalizedFontName = TerminalDefaults.normalizedMacOSFontName(
             storedFontName: TerminalDefaults.legacyDefaultFontName,
@@ -81,12 +81,12 @@ struct TerminalDefaultsTests {
 
         #expect(normalizedFontName == TerminalDefaults.legacyDefaultFontName)
         #else
-        throw Skip("macOS-only legacy font preservation")
+        return
         #endif
     }
 
     @Test
-    func applyIfNeededNormalizesExactLegacyMacOSFontValuesWhenFontIsUnavailable() throws {
+    func applyIfNeededNormalizesExactLegacyMacOSFontValuesWhenFontIsUnavailable() {
         #if os(macOS)
         let normalizedFontName = TerminalDefaults.normalizedMacOSFontName(
             storedFontName: TerminalDefaults.legacyDefaultFontName,
@@ -95,12 +95,12 @@ struct TerminalDefaultsTests {
 
         #expect(normalizedFontName == TerminalDefaults.defaultPrimaryFontName)
         #else
-        throw Skip("macOS-only legacy font normalization")
+        return
         #endif
     }
 
     @Test
-    func applyIfNeededPreservesInstalledMacOSFontsDuringNormalization() throws {
+    func applyIfNeededPreservesInstalledMacOSFontsDuringNormalization() {
         #if os(macOS)
         let normalizedFontName = TerminalDefaults.normalizedMacOSFontName(
             storedFontName: "Installed But Misclassified Font",
@@ -109,12 +109,12 @@ struct TerminalDefaultsTests {
 
         #expect(normalizedFontName == "Installed But Misclassified Font")
         #else
-        throw Skip("macOS-only font normalization")
+        return
         #endif
     }
 
     @Test
-    func applyIfNeededNormalizesInvalidStoredMacOSFontName() throws {
+    func applyIfNeededNormalizesInvalidStoredMacOSFontName() {
         #if os(macOS)
         let defaults = makeDefaults()
 
@@ -126,7 +126,7 @@ struct TerminalDefaultsTests {
         #expect(defaults.string(forKey: TerminalDefaults.fontNameKey) == TerminalDefaults.defaultPrimaryFontName)
         #expect(defaults.object(forKey: TerminalDefaults.fontSizeKey) as? Double == 16.0)
         #else
-        throw Skip("macOS-only migration policy")
+        return
         #endif
     }
 }

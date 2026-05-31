@@ -24,7 +24,7 @@ final class CloudKitManager: ObservableObject {
 
     private let container: CKContainer
     private let database: CKDatabase
-    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier!, category: "CloudKit")
+    private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "app.paullm.ssh", category: "CloudKit")
     private let recordZoneName = CloudKitSyncConstants.recordZoneName
     private lazy var recordZone = CKRecordZone(zoneName: recordZoneName)
     private var recordZoneID: CKRecordZone.ID { recordZone.zoneID }

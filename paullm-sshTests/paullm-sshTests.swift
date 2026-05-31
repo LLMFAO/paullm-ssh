@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import paullm-ssh
+@testable import paullm_ssh
 
 struct ServerMoveSupportTests {
     private func makeWorkspace(
@@ -18,34 +18,30 @@ struct ServerMoveSupportTests {
     }
 
     @Test
-    func lockedSourceCanMoveIntoUnlockedWorkspaceOnFreePlan() {
+    func sourceWorkspaceIsExcludedFromAllowedDestinations() {
         let unlocked = makeWorkspace(name: "Primary", order: 0)
         let locked = makeWorkspace(name: "Archive", order: 1)
 
         let allowedDestinations = ServerMoveSupport.allowedDestinationIDs(
-            isPro: false,
             sourceWorkspaceId: locked.id,
-            workspacesInOrder: [unlocked, locked],
-            unlockedWorkspaceIds: Set([unlocked.id])
+            workspacesInOrder: [unlocked, locked]
         )
 
         #expect(allowedDestinations == Set([unlocked.id]))
     }
 
     @Test
-    func freePlanDoesNotOfferLockedWorkspaceAsDestination() {
+    func allWorkspacesExceptSourceAreAllowedDestinations() {
         let unlockedA = makeWorkspace(name: "Primary", order: 0)
         let locked = makeWorkspace(name: "Archive", order: 1)
         let unlockedB = makeWorkspace(name: "Shared", order: 2)
 
         let allowedDestinations = ServerMoveSupport.allowedDestinationIDs(
-            isPro: false,
             sourceWorkspaceId: unlockedA.id,
-            workspacesInOrder: [unlockedA, locked, unlockedB],
-            unlockedWorkspaceIds: Set([unlockedA.id, unlockedB.id])
+            workspacesInOrder: [unlockedA, locked, unlockedB]
         )
 
-        #expect(allowedDestinations == Set([unlockedB.id]))
+        #expect(allowedDestinations == Set([locked.id, unlockedB.id]))
     }
 
     @Test

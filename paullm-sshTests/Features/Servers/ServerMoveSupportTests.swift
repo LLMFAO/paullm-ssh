@@ -1,20 +1,18 @@
 import XCTest
-@testable import paullm-ssh
+@testable import paullm_ssh
 
 final class ServersFeatureMoveSupportTests: XCTestCase {
-    func testAllowedDestinationIDsForFreeLockedWorkspaceReturnsUnlockedTargetsOnly() {
+    func testAllowedDestinationIDsExcludesSourceWorkspace() {
         let source = Workspace(name: "Source")
         let unlocked = Workspace(name: "Unlocked", order: 1)
         let locked = Workspace(name: "Locked", order: 2)
 
         let destinations = ServerMoveSupport.allowedDestinationIDs(
-            isPro: false,
             sourceWorkspaceId: source.id,
-            workspacesInOrder: [source, unlocked, locked],
-            unlockedWorkspaceIds: [unlocked.id]
+            workspacesInOrder: [source, unlocked, locked]
         )
 
-        XCTAssertEqual(destinations, [unlocked.id])
+        XCTAssertEqual(destinations, [unlocked.id, locked.id])
     }
 
     func testResolveEnvironmentFallsBackToProductionWhenCurrentMissing() {

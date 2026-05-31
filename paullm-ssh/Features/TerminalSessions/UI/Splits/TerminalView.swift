@@ -240,6 +240,7 @@ struct TerminalTabView: View {
                 showingVoiceRecording = false
                 voiceProcessing = false
             },
+            onSendToBuffer: nil,
             onCancel: {
                 showingVoiceRecording = false
                 voiceProcessing = false

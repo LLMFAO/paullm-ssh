@@ -1,5 +1,5 @@
 import XCTest
-@testable import paullm-ssh
+@testable import paullm_ssh
 
 final class ConnectionSessionDomainTests: XCTestCase {
     func testConnectionStateFlagsReflectConnectedAndConnectingStates() {

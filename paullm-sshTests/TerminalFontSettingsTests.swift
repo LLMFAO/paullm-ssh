@@ -1,13 +1,13 @@
 import Foundation
 import Testing
-@testable import paullm-ssh
+@testable import paullm_ssh
 
 struct TerminalFontSettingsTests {
 
     // MARK: - Fresh default source
 
     @Test
-    func freshMacOSDefaultsResolveToMenlo() throws {
+    func freshMacOSDefaultsResolveToMenlo() {
         #if os(macOS)
         let defaults = UserDefaults(suiteName: #function)!
         defaults.removePersistentDomain(forName: #function)
@@ -22,16 +22,16 @@ struct TerminalFontSettingsTests {
         // resolve to "Menlo" on macOS.
         #expect(TerminalDefaults.defaultFontName == "Menlo")
         #else
-        throw Skip("macOS-only fresh default source check")
+        return
         #endif
     }
 
     @Test
-    func freshMacOSFontSizeIsTwelvePoints() throws {
+    func freshMacOSFontSizeIsTwelvePoints() {
         #if os(macOS)
         #expect(TerminalDefaults.defaultFontSize == 12.0)
         #else
-        throw Skip("macOS-only default font size check")
+        return
         #endif
     }
 
@@ -106,7 +106,7 @@ struct TerminalFontSettingsTests {
     // MARK: - Fallback families are not forced as primary
 
     @Test
-    func fallbackFamiliesAreNotDefaultPrimaryFont() throws {
+    func fallbackFamiliesAreNotDefaultPrimaryFont() {
         #if os(macOS)
         let fallbacks = TerminalDefaults.macOSFallbackFontFamilies
 
@@ -117,19 +117,19 @@ struct TerminalFontSettingsTests {
         #expect(fallbacks.contains("Apple SD Gothic Neo"))
         #expect(fallbacks.contains("JetBrainsMono Nerd Font"))
         #else
-        throw Skip("macOS-only fallback family check")
+        return
         #endif
     }
 
     @Test
-    func settingsDefaultFontIsNotAFallbackFamily() throws {
+    func settingsDefaultFontIsNotAFallbackFamily() {
         #if os(macOS)
         // Verify that the Settings picker default is "Menlo", not a fallback
         #expect(TerminalDefaults.defaultFontName == "Menlo")
         #expect(TerminalDefaults.defaultFontName != "Apple SD Gothic Neo")
         #expect(TerminalDefaults.defaultFontName != "JetBrainsMono Nerd Font")
         #else
-        throw Skip("macOS-only primary vs fallback check")
+        return
         #endif
     }
 }

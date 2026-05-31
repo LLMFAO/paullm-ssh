@@ -1,5 +1,5 @@
 import XCTest
-@testable import paullm-ssh
+@testable import paullm_ssh
 
 final class StoreStateTests: XCTestCase {
     func testPurchaseStateEqualityMatchesAssociatedMessage() {

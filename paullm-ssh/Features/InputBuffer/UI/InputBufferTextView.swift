@@ -8,8 +8,10 @@ struct InputBufferTextView: View {
         TextEditor(text: $text)
             .font(.system(size: 15, weight: .regular, design: .monospaced))
             .autocorrectionDisabled(true)
+            #if os(iOS)
             .textInputAutocapitalization(.never)
             .keyboardType(.asciiCapable)
             .scrollContentBackground(.hidden)
+            #endif
     }
 }

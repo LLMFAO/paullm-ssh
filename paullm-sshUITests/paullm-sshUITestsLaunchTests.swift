@@ -7,7 +7,7 @@
 
 import XCTest
 
-final class paullm-sshUITestsLaunchTests: XCTestCase {
+final class paullm_sshUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true
