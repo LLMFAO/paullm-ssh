@@ -1249,6 +1249,20 @@ struct iOSTerminalView: View {
 
     @ToolbarContentBuilder
     private var navigationToolbar: some ToolbarContent {
+        ToolbarItem(placement: .navigationBarLeading) {
+            Button {
+                dismissKeyboardForCurrentSession()
+                onBack()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                    Text("Home")
+                        .font(.system(size: 17))
+                }
+            }
+        }
+
         ToolbarItem(placement: .principal) {
             if let serverId = currentServerId ?? selectedSession?.serverId ?? selectedServer?.id ?? connectingServer?.id {
                 iOSNativeSegmentedPicker(
