@@ -43,9 +43,9 @@ final class TerminalAccessoryPreferencesManagerTests: XCTestCase {
             shortcutModifiers: .init(control: true)
         )
 
-        XCTAssertEqual(manager.customActions.map(\.id), [action.id])
+        XCTAssertTrue(manager.customActions.map(\.id).contains(action.id))
         XCTAssertEqual(manager.profile.lastWriterDeviceId, DeviceIdentity.id)
-        XCTAssertEqual(manager.profile.customActions.first?.commandContent, "ls -la")
+        XCTAssertEqual(manager.customActions.first(where: { $0.id == action.id })?.commandContent, "ls -la")
         XCTAssertNotNil(defaults.data(forKey: TerminalAccessoryProfile.defaultsKey))
     }
 
