@@ -18,7 +18,7 @@ struct ServerMoveSupportTests {
     }
 
     @Test
-    func lockedSourceCanMoveIntoUnlockedWorkspaceOnFreePlan() {
+    func sourceWorkspaceIsExcludedFromAllowedDestinations() {
         let unlocked = makeWorkspace(name: "Primary", order: 0)
         let locked = makeWorkspace(name: "Archive", order: 1)
 
@@ -31,7 +31,7 @@ struct ServerMoveSupportTests {
     }
 
     @Test
-    func freePlanDoesNotOfferLockedWorkspaceAsDestination() {
+    func allWorkspacesExceptSourceAreAllowedDestinations() {
         let unlockedA = makeWorkspace(name: "Primary", order: 0)
         let locked = makeWorkspace(name: "Archive", order: 1)
         let unlockedB = makeWorkspace(name: "Shared", order: 2)

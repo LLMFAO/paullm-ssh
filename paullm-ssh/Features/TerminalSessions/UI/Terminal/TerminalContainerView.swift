@@ -133,6 +133,10 @@ struct TerminalContainerView: View {
     }
     #endif
 
+    private var fallbackReasonTaskID: MoshFallbackReason? {
+        session.activeTransport == .sshFallback ? session.moshFallbackReason : nil
+    }
+
     private var reconnectBannerMessage: String? {
         guard shouldUseInlineReconnectPresentation else { return nil }
 
@@ -202,7 +206,50 @@ struct TerminalContainerView: View {
         bottomOperationNotice == nil ? 0 : 104
     }
 
+    private func applyFallbackBannerTask() async {
+        guard session.activeTransport == .sshFallback else { return }
+        dismissFallbackBanner = false
+        try? await Task.sleep(for: .seconds(8))
+        guard !Task.isCancelled else { return }
+        dismissFallbackBanner = true
+    }
+
+    private func handleOnDisappearCleanup() {
+        #if os(macOS)
+        cleanupKeyMonitor()
+        #endif
+        #if os(macOS) || os(iOS)
+        if showingVoiceRecording {
+            audioService.cancelRecording()
+            showingVoiceRecording = false
+            voiceProcessing = false
+        }
+        #endif
+    }
+
     var body: some View {
+        coreContent
+            .applySessionModifiers(
+                session: session,
+                showingPermissionError: $showingPermissionError,
+                permissionErrorMessage: permissionErrorMessage,
+                showingTmuxInstallPrompt: $showingTmuxInstallPrompt,
+                showingMoshInstallPrompt: $showingMoshInstallPrompt,
+                onDisableTmux: { disableTmuxForServer() },
+                onInstallMosh: { Task { await installMoshServerAndReconnect() } }
+            )
+            .sheet(isPresented: Binding(
+                get: { InputBufferManager.shared.isPresented },
+                set: { InputBufferManager.shared.isPresented = $0 }
+            )) {
+                InputBufferSheet { text in
+                    ConnectionSessionManager.shared.sendText(text, to: session.id)
+                }
+            }
+    }
+
+    @ViewBuilder
+    private var coreContent: some View {
         NoticeHost(
             topBanner: topBannerNotice,
             bottomOperation: bottomOperationNotice,
@@ -220,141 +267,68 @@ struct TerminalContainerView: View {
         .task {
             loadCredentialsIfNeeded(force: true)
         }
-        .onChange(of: server?.id) { _ in
-            loadCredentialsIfNeeded(force: true)
-        }
         .onAppear {
             updateTerminalBackgroundColor()
-            if terminalAlreadyExists {
-                hasEstablishedConnection = true
-            }
-            if session.connectionState.isConnected {
-                hasEstablishedConnection = true
-            }
-            if session.tmuxStatus == .missing {
-                showingTmuxInstallPrompt = true
-            }
-            if shouldPromptMoshInstall {
-                showingMoshInstallPrompt = true
-            }
+            if terminalAlreadyExists { hasEstablishedConnection = true }
+            if session.connectionState.isConnected { hasEstablishedConnection = true }
+            if session.tmuxStatus == .missing { showingTmuxInstallPrompt = true }
+            if shouldPromptMoshInstall { showingMoshInstallPrompt = true }
             startConnectWatchdog()
             attemptAutoReconnectIfNeeded()
         }
-        .onChange(of: terminalThemeName) { _ in updateTerminalBackgroundColor() }
-        .onChange(of: terminalThemeNameLight) { _ in updateTerminalBackgroundColor() }
-        .onChange(of: usePerAppearanceTheme) { _ in updateTerminalBackgroundColor() }
-        .onChange(of: colorScheme) { _ in updateTerminalBackgroundColor() }
-        .onChange(of: scenePhase) { newPhase in
-            if newPhase == .active {
-                updateTerminalBackgroundColor()
-                attemptAutoReconnectIfNeeded()
-            }
-        }
-        .onChange(of: isReady) { _ in
-            connectWatchdogToken = UUID()
-            startConnectWatchdog()
-        }
-        .onChange(of: session.connectionState) { state in
-            if state.isConnecting || state.isConnected {
-                if terminalAlreadyExists {
-                    hasEstablishedConnection = true
-                }
-                if state.isConnected {
-                    hasEstablishedConnection = true
-                }
-                reconnectInFlight = false
+        .applyThemeModifiers(
+            terminalThemeName: terminalThemeName,
+            terminalThemeNameLight: terminalThemeNameLight,
+            usePerAppearanceTheme: usePerAppearanceTheme,
+            colorScheme: colorScheme,
+            scenePhase: scenePhase,
+            action: { updateTerminalBackgroundColor() },
+            autoReconnectAction: { attemptAutoReconnectIfNeeded() }
+        )
+        .applySessionStateModifiers(
+            session: session,
+            server: server,
+            isReady: isReady,
+            terminalAlreadyExists: terminalAlreadyExists,
+            shouldPromptMoshInstall: shouldPromptMoshInstall,
+            onCredentialsLoad: { force in loadCredentialsIfNeeded(force: force) },
+            onWatchdogReset: {
                 connectWatchdogToken = UUID()
                 startConnectWatchdog()
-            } else if case .disconnected = state {
-                attemptAutoReconnectIfNeeded()
+            },
+            onStateChange: { state in
+                if state.isConnecting || state.isConnected {
+                    if terminalAlreadyExists { hasEstablishedConnection = true }
+                    if state.isConnected { hasEstablishedConnection = true }
+                    reconnectInFlight = false
+                    connectWatchdogToken = UUID()
+                    startConnectWatchdog()
+                } else if case .disconnected = state {
+                    attemptAutoReconnectIfNeeded()
+                }
+            },
+            onTmuxMissing: { showingTmuxInstallPrompt = true },
+            onMoshFallbackChange: {
+                if session.activeTransport == .sshFallback { dismissFallbackBanner = false }
+                if shouldPromptMoshInstall { showingMoshInstallPrompt = true }
+            },
+            onActiveTransportChange: { transport in
+                dismissFallbackBanner = transport != .sshFallback ? false : dismissFallbackBanner
+                if shouldPromptMoshInstall { showingMoshInstallPrompt = true }
             }
-        }
-        .onChange(of: session.tmuxStatus) { status in
-            if status == .missing {
-                showingTmuxInstallPrompt = true
-            }
-        }
-        .onChange(of: session.moshFallbackReason) { _ in
-            if session.activeTransport == .sshFallback {
-                dismissFallbackBanner = false
-            }
-            if shouldPromptMoshInstall {
-                showingMoshInstallPrompt = true
-            }
-        }
-        .onChange(of: session.activeTransport) { transport in
-            dismissFallbackBanner = transport != .sshFallback ? false : dismissFallbackBanner
-            if shouldPromptMoshInstall {
-                showingMoshInstallPrompt = true
-            }
-        }
-        .task(id: session.activeTransport == .sshFallback ? session.moshFallbackReason : nil) {
-            guard session.activeTransport == .sshFallback else { return }
-            dismissFallbackBanner = false
-            try? await Task.sleep(for: .seconds(8))
-            guard !Task.isCancelled else { return }
-            dismissFallbackBanner = true
-        }
+        )
+        .task(id: fallbackReasonTaskID) { await applyFallbackBannerTask() }
         .terminalRichPastePrompt(using: richPasteUI)
-        #if os(macOS) || os(iOS)
-        .alert("Voice Input Unavailable", isPresented: $showingPermissionError) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(permissionErrorMessage)
-        }
-        #endif
-        .alert("Install tmux?", isPresented: $showingTmuxInstallPrompt) {
-            Button("Install") {
-                Task {
-                    await ConnectionSessionManager.shared.startTmuxInstall(for: session.id)
-                }
+        .platformSessionAppearance(
+            onAppearAction: {
+                #if os(macOS)
+                setupKeyMonitor()
+                #endif
+            },
+            onDisappearAction: {
+                handleOnDisappearCleanup()
             }
-            Button("Continue without persistence", role: .cancel) {
-                disableTmuxForServer()
-            }
-        } message: {
-            Text("tmux keeps your terminal session alive across app restarts and disconnects.")
-        }
-        .alert("Install mosh-server?", isPresented: $showingMoshInstallPrompt) {
-            Button("Install") {
-                Task {
-                    await installMoshServerAndReconnect()
-                }
-            }
-            Button("Continue with SSH", role: .cancel) {}
-        } message: {
-            Text("Mosh is selected for this server, but mosh-server is missing on the host.")
-        }
-        #if os(macOS)
-        .onAppear {
-            setupKeyMonitor()
-        }
-        .onDisappear {
-            cleanupKeyMonitor()
-            if showingVoiceRecording {
-                audioService.cancelRecording()
-                showingVoiceRecording = false
-                voiceProcessing = false
-            }
-        }
-        #endif
-        #if os(iOS)
-        .onDisappear {
-            if showingVoiceRecording {
-                audioService.cancelRecording()
-                showingVoiceRecording = false
-                voiceProcessing = false
-            }
-        }
-        #endif
-        .sheet(isPresented: Binding(
-            get: { InputBufferManager.shared.isPresented },
-            set: { InputBufferManager.shared.isPresented = $0 }
-        )) {
-            InputBufferSheet { text in
-                ConnectionSessionManager.shared.sendText(text, to: session.id)
-            }
-        }
+        )
     }
 
     @ViewBuilder
@@ -934,3 +908,129 @@ struct TerminalEmptyStateView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
+
+#if os(macOS) || os(iOS)
+extension View {
+    @ViewBuilder
+    func applySessionModifiers(
+        session: ConnectionSession,
+        showingPermissionError: Binding<Bool>,
+        permissionErrorMessage: String,
+        showingTmuxInstallPrompt: Binding<Bool>,
+        showingMoshInstallPrompt: Binding<Bool>,
+        onDisableTmux: @escaping () -> Void,
+        onInstallMosh: @escaping () -> Void
+    ) -> some View {
+        self
+            .alert("Voice Input Unavailable", isPresented: showingPermissionError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(permissionErrorMessage)
+            }
+            .alert("Install tmux?", isPresented: showingTmuxInstallPrompt) {
+                Button("Install") {
+                    Task {
+                        await ConnectionSessionManager.shared.startTmuxInstall(for: session.id)
+                    }
+                }
+                Button("Continue without persistence", role: .cancel) {
+                    onDisableTmux()
+                }
+            } message: {
+                Text("tmux keeps your terminal session alive across app restarts and disconnects.")
+            }
+            .alert("Install mosh-server?", isPresented: showingMoshInstallPrompt) {
+                Button("Install") {
+                    onInstallMosh()
+                }
+                Button("Continue with SSH", role: .cancel) {}
+            } message: {
+                Text("Mosh is selected for this server, but mosh-server is missing on the host.")
+            }
+    }
+
+    @ViewBuilder
+    func applyThemeModifiers(
+        terminalThemeName: String,
+        terminalThemeNameLight: String,
+        usePerAppearanceTheme: Bool,
+        colorScheme: ColorScheme,
+        scenePhase: ScenePhase,
+        action: @escaping () -> Void,
+        autoReconnectAction: @escaping () -> Void
+    ) -> some View {
+        self
+            .onChange(of: terminalThemeName) { _ in action() }
+            .onChange(of: terminalThemeNameLight) { _ in action() }
+            .onChange(of: usePerAppearanceTheme) { _ in action() }
+            .onChange(of: colorScheme) { _ in action() }
+            .onChange(of: scenePhase) { newPhase in
+                if newPhase == .active {
+                    action()
+                    autoReconnectAction()
+                }
+            }
+    }
+
+    @ViewBuilder
+    func applySessionStateModifiers(
+        session: ConnectionSession,
+        server: Server?,
+        isReady: Bool,
+        terminalAlreadyExists: Bool,
+        shouldPromptMoshInstall: Bool,
+        onCredentialsLoad: @escaping (Bool) -> Void,
+        onWatchdogReset: @escaping () -> Void,
+        onStateChange: @escaping (ConnectionState) -> Void,
+        onTmuxMissing: @escaping () -> Void,
+        onMoshFallbackChange: @escaping () -> Void,
+        onActiveTransportChange: @escaping (ShellTransport) -> Void
+    ) -> some View {
+        self
+            .onChange(of: server?.id) { _ in
+                onCredentialsLoad(true)
+            }
+            .onChange(of: isReady) { _ in
+                onWatchdogReset()
+            }
+            .onChange(of: session.connectionState) { state in
+                onStateChange(state)
+            }
+            .onChange(of: session.tmuxStatus) { status in
+                if status == .missing {
+                    onTmuxMissing()
+                }
+            }
+            .onChange(of: session.moshFallbackReason) { _ in
+                onMoshFallbackChange()
+            }
+            .onChange(of: session.activeTransport) { transport in
+                onActiveTransportChange(transport)
+            }
+    }
+
+    @ViewBuilder
+    func platformSessionAppearance(
+        onAppearAction: @escaping () -> Void,
+        onDisappearAction: @escaping () -> Void
+    ) -> some View {
+        #if os(macOS)
+        self
+            .onAppear {
+                onAppearAction()
+            }
+            .onDisappear {
+                onDisappearAction()
+            }
+        #elseif os(iOS)
+        self
+            .onDisappear {
+                onDisappearAction()
+            }
+        #else
+        self
+        #endif
+    }
+}
+#endif
+

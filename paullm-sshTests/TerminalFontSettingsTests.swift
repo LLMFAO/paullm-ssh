@@ -7,7 +7,7 @@ struct TerminalFontSettingsTests {
     // MARK: - Fresh default source
 
     @Test
-    func freshMacOSDefaultsResolveToMenlo() throws {
+    func freshMacOSDefaultsResolveToMenlo() {
         #if os(macOS)
         let defaults = UserDefaults(suiteName: #function)!
         defaults.removePersistentDomain(forName: #function)
@@ -27,7 +27,7 @@ struct TerminalFontSettingsTests {
     }
 
     @Test
-    func freshMacOSFontSizeIsTwelvePoints() throws {
+    func freshMacOSFontSizeIsTwelvePoints() {
         #if os(macOS)
         #expect(TerminalDefaults.defaultFontSize == 12.0)
         #else
@@ -106,7 +106,7 @@ struct TerminalFontSettingsTests {
     // MARK: - Fallback families are not forced as primary
 
     @Test
-    func fallbackFamiliesAreNotDefaultPrimaryFont() throws {
+    func fallbackFamiliesAreNotDefaultPrimaryFont() {
         #if os(macOS)
         let fallbacks = TerminalDefaults.macOSFallbackFontFamilies
 
@@ -122,7 +122,7 @@ struct TerminalFontSettingsTests {
     }
 
     @Test
-    func settingsDefaultFontIsNotAFallbackFamily() throws {
+    func settingsDefaultFontIsNotAFallbackFamily() {
         #if os(macOS)
         // Verify that the Settings picker default is "Menlo", not a fallback
         #expect(TerminalDefaults.defaultFontName == "Menlo")

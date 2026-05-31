@@ -2,7 +2,7 @@ import XCTest
 @testable import paullm_ssh
 
 final class ServersFeatureMoveSupportTests: XCTestCase {
-    func testAllowedDestinationIDsForFreeLockedWorkspaceReturnsUnlockedTargetsOnly() {
+    func testAllowedDestinationIDsExcludesSourceWorkspace() {
         let source = Workspace(name: "Source")
         let unlocked = Workspace(name: "Unlocked", order: 1)
         let locked = Workspace(name: "Locked", order: 2)

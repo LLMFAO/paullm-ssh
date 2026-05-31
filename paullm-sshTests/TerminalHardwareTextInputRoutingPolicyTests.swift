@@ -145,6 +145,7 @@ struct TerminalHardwareTextInputRoutingPolicyTests {
     }
 }
 
+#if os(iOS)
 struct TerminalKeyboardFocusPolicyTests {
     @Test
     func startsAutomaticWithoutReconnectRestore() {
@@ -198,3 +199,4 @@ struct TerminalKeyboardFocusPolicyTests {
         #expect(policy.shouldRestoreOnReconnect == false)
     }
 }
+#endif
