@@ -704,7 +704,13 @@ final class TerminalTabManager: ObservableObject {
             return .attachExisting(sessionName: tmuxResolver.sessionName(for: paneId))
         }
 
-        tmuxResolver.sessionNames[paneId] = tmuxResolver.managedSessionName(for: paneId)
+        if let startup = paneStates[paneId]?.startup, startup.kind != .tmux {
+            if tmuxResolver.sessionNames[paneId] == nil {
+                tmuxResolver.sessionNames[paneId] = startup.kind.rawValue
+            }
+        } else {
+            tmuxResolver.sessionNames[paneId] = tmuxResolver.managedSessionName(for: paneId)
+        }
         tmuxResolver.sessionOwnership[paneId] = .managed
         return .createManaged
     }
@@ -863,7 +869,11 @@ final class TerminalTabManager: ObservableObject {
         }
 
         let selection = await tmuxResolver.resolveSelection(
-            for: paneId, serverId: serverId, client: client, setPrompt: setTmuxAttachPrompt
+            for: paneId,
+            serverId: serverId,
+            client: client,
+            startup: paneStates[paneId]?.startup,
+            setPrompt: setTmuxAttachPrompt
         )
         tmuxResolver.updateAttachmentState(for: paneId, selection: selection, setPrompt: setTmuxAttachPrompt)
 

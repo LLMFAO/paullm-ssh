@@ -112,4 +112,101 @@ struct TerminalSessionStartupTests {
         #expect(seededEdited?.commandContent == "claude --model opus")
         #expect(seededDeleted?.isDeleted == true)
     }
+
+    @MainActor @Test
+    func testNormalManagedSessionNameFormatting() {
+        let resolver = TmuxAttachResolver()
+        let id = UUID()
+        let expectedName = "paullm_\(DeviceIdentity.id)_\(id.uuidString)"
+        #expect(resolver.managedSessionName(for: id) == expectedName)
+    }
+
+    @MainActor @Test
+    func testAISessionNameResolutionBypassesPromptAndGeneratesFirstIndex() async {
+        let resolver = TmuxAttachResolver()
+        let entityId = UUID()
+        let serverId = UUID()
+        let client = SSHClient()
+        
+        let startup = TerminalSessionStartup(
+            kind: .claude,
+            actionID: UUID(),
+            displayTitle: "Claude CLI",
+            iconSystemName: "sparkles",
+            command: "claude",
+            bypassPermissions: false
+        )
+        
+        var promptCalled = false
+        let selection = await resolver.resolveSelection(
+            for: entityId,
+            serverId: serverId,
+            client: client,
+            startup: startup,
+            setPrompt: { _ in
+                promptCalled = true
+            }
+        )
+        
+        #expect(!promptCalled)
+        #expect(selection == .createManaged)
+        #expect(resolver.sessionName(for: entityId) == "claude-1")
+        #expect(resolver.sessionOwnership[entityId] == .managed)
+    }
+
+    @MainActor @Test
+    func testAISessionNameResolutionUsesPersistedCustomName() async {
+        let resolver = TmuxAttachResolver()
+        let entityId = UUID()
+        let serverId = UUID()
+        let client = SSHClient()
+        
+        let startup = TerminalSessionStartup(
+            kind: .antigravity,
+            actionID: UUID(),
+            displayTitle: "Antigravity CLI",
+            iconSystemName: "atom",
+            command: "agy",
+            bypassPermissions: false
+        )
+        
+        // Persist a custom name first
+        resolver.setCustomSessionName("antigravity-pre-existing", for: entityId)
+        
+        var promptCalled = false
+        let selection = await resolver.resolveSelection(
+            for: entityId,
+            serverId: serverId,
+            client: client,
+            startup: startup,
+            setPrompt: { _ in
+                promptCalled = true
+            }
+        )
+        
+        #expect(!promptCalled)
+        #expect(selection == .createManaged)
+        #expect(resolver.sessionName(for: entityId) == "antigravity-pre-existing")
+        #expect(resolver.sessionOwnership[entityId] == .managed)
+        
+        // Cleanup and make sure it deletes the AI-looking pre-existing name
+        resolver.clearAttachmentState(for: entityId)
+        #expect(resolver.sessionName(for: entityId) != "antigravity-pre-existing")
+    }
+
+    @MainActor @Test
+    func testClearAttachmentStateCleansUpOnlyAISessionNames() {
+        let resolver = TmuxAttachResolver()
+        let id1 = UUID()
+        let id2 = UUID()
+        
+        resolver.setCustomSessionName("claude-4", for: id1)
+        resolver.setCustomSessionName("my-hand-made-session", for: id2)
+        
+        resolver.clearAttachmentState(for: id1)
+        resolver.clearAttachmentState(for: id2)
+        
+        #expect(resolver.sessionName(for: id1) != "claude-4")
+        #expect(resolver.sessionName(for: id2) == "my-hand-made-session")
+    }
 }

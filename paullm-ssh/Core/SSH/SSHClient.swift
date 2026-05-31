@@ -2751,7 +2751,7 @@ struct SSHSessionConfig {
     var connectionTimeout: TimeInterval = 30
     var keepAliveInterval: TimeInterval = 30
 
-    init(
+    nonisolated init(
         host: String,
         port: Int,
         dialHost: String? = nil,

@@ -1199,7 +1199,13 @@ extension ConnectionSessionManager {
             return .attachExisting(sessionName: tmuxResolver.sessionName(for: sessionId))
         }
 
-        tmuxResolver.sessionNames[sessionId] = tmuxResolver.managedSessionName(for: sessionId)
+        if let startup = sessionWithID(sessionId)?.startup, startup.kind != .tmux {
+            if tmuxResolver.sessionNames[sessionId] == nil {
+                tmuxResolver.sessionNames[sessionId] = startup.kind.rawValue
+            }
+        } else {
+            tmuxResolver.sessionNames[sessionId] = tmuxResolver.managedSessionName(for: sessionId)
+        }
         tmuxResolver.sessionOwnership[sessionId] = .managed
         return .createManaged
     }
@@ -1298,7 +1304,11 @@ extension ConnectionSessionManager {
         }
 
         let selection = await tmuxResolver.resolveSelection(
-            for: sessionId, serverId: serverId, client: client, setPrompt: setTmuxAttachPrompt
+            for: sessionId,
+            serverId: serverId,
+            client: client,
+            startup: sessionWithID(sessionId)?.startup,
+            setPrompt: setTmuxAttachPrompt
         )
         tmuxResolver.updateAttachmentState(for: sessionId, selection: selection, setPrompt: setTmuxAttachPrompt)
 

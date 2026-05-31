@@ -1414,7 +1414,7 @@ struct iOSTerminalView: View {
     }
 
     private func openNewTab() {
-        guard let server = selectedServer else { return }
+        guard selectedServer != nil else { return }
         guard sessionManager.canOpenNewTab else {
             showingTabLimitAlert = true
             return

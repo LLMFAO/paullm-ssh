@@ -86,6 +86,14 @@ final class TmuxAttachResolver {
     // MARK: - Attachment State
 
     func clearAttachmentState(for entityId: UUID) {
+        if let customName = customSessionNames[entityId.uuidString] {
+            let isAISessionName = TerminalSessionKind.allCases.filter { $0 != .tmux }.contains { kind in
+                customName.hasPrefix("\(kind.rawValue)-")
+            }
+            if isAISessionName {
+                customSessionNames.removeValue(forKey: entityId.uuidString)
+            }
+        }
         sessionNames.removeValue(forKey: entityId)
         sessionOwnership.removeValue(forKey: entityId)
     }
@@ -106,7 +114,9 @@ final class TmuxAttachResolver {
     func updateAttachmentState(for entityId: UUID, selection: TmuxAttachSelection, setPrompt: (TmuxAttachPrompt?) -> Void) {
         switch selection {
         case .createManaged:
-            sessionNames[entityId] = managedSessionName(for: entityId)
+            if sessionNames[entityId] == nil {
+                sessionNames[entityId] = managedSessionName(for: entityId)
+            }
             sessionOwnership[entityId] = .managed
         case .attachExisting(let name):
             sessionNames[entityId] = name
@@ -122,6 +132,7 @@ final class TmuxAttachResolver {
         for entityId: UUID,
         serverId: UUID,
         client: SSHClient,
+        startup: TerminalSessionStartup? = nil,
         setPrompt: @escaping (TmuxAttachPrompt?) -> Void
     ) async -> TmuxAttachSelection {
         // On reconnect, reuse the previous session choice for this tab/pane
@@ -139,6 +150,30 @@ final class TmuxAttachResolver {
                 sessionNames.removeValue(forKey: entityId)
                 sessionOwnership.removeValue(forKey: entityId)
             }
+        }
+
+        if let startup, startup.kind != .tmux {
+            if let customName = customSessionNames[entityId.uuidString] {
+                sessionNames[entityId] = customName
+                sessionOwnership[entityId] = .managed
+                return .createManaged
+            }
+            
+            let sessions = await RemoteTmuxManager.shared.listSessions(using: client)
+            let existingNames = Set(sessions.map { $0.name })
+            
+            let kindName = startup.kind.rawValue
+            var index = 1
+            var candidateName = "\(kindName)-\(index)"
+            while existingNames.contains(candidateName) {
+                index += 1
+                candidateName = "\(kindName)-\(index)"
+            }
+            
+            customSessionNames[entityId.uuidString] = candidateName
+            sessionNames[entityId] = candidateName
+            sessionOwnership[entityId] = .managed
+            return .createManaged
         }
 
         let behavior = tmuxStartupBehavior(for: serverId)
