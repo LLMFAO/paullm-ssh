@@ -12,6 +12,20 @@
 		<string>HackNerdFont-Regular.ttf</string>
 		<string>FiraCodeNerdFont-Regular.ttf</string>
 		<string>MesloLGSNerdFont-Regular.ttf</string>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>app.paullm.ssh.remote-file-entry</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Remote File Entry</string>
+			<key>UTTypeTagSpecification</key>
+			<dict/>
+		</dict>
 	</array>
 </dict>
 </plist>

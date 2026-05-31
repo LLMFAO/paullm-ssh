@@ -62,5 +62,21 @@
     <!-- Export compliance (encryption) -->
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
+
+    <key>UTExportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeIdentifier</key>
+            <string>app.paullm.ssh.remote-file-entry</string>
+            <key>UTTypeConformsTo</key>
+            <array>
+                <string>public.data</string>
+            </array>
+            <key>UTTypeDescription</key>
+            <string>Remote File Entry</string>
+            <key>UTTypeTagSpecification</key>
+            <dict/>
+        </dict>
+    </array>
 </dict>
 </plist>
