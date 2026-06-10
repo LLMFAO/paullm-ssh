@@ -512,8 +512,41 @@ final class ConnectionSessionManager: ObservableObject {
         logger.info("Suspended all sessions for background")
     }
 
-    /// Handle shell exit without removing the session (keeps tab for reconnect)
+    /// Handle the terminal's shell stream ending.
+    ///
+    /// A shell stream can end for two very different reasons:
+    ///   • the remote program/tmux session ended on its own — e.g. the user quit
+    ///     the CLI and the tmux session became empty. The SSH transport is still
+    ///     alive. In this case we close the session so the user isn't left on a
+    ///     dead terminal; once no sessions remain the iOS shell returns to the
+    ///     server list automatically.
+    ///   • the connection dropped (network loss). The transport is gone, so we keep
+    ///     the tab in a disconnected state and let auto-reconnect take over.
+    ///
+    /// We tell the two apart by probing the transport with a trivial command.
     func handleShellExit(for sessionId: UUID) {
+        guard let client = sshClient(forSessionId: sessionId) else {
+            // Nothing to probe — treat as a drop so the tab survives for reconnect.
+            keepSessionForReconnect(sessionId)
+            return
+        }
+
+        Task { [weak self] in
+            let transportAlive = ((try? await client.execute("true", timeout: .seconds(4))) != nil)
+            await MainActor.run {
+                guard let self else { return }
+                if transportAlive, let session = self.sessionWithID(sessionId) {
+                    // Clean end (tmux emptied / CLI exited): close the session.
+                    self.closeSession(session)
+                } else {
+                    // Connection dropped: keep the tab so the user can reconnect.
+                    self.keepSessionForReconnect(sessionId)
+                }
+            }
+        }
+    }
+
+    private func keepSessionForReconnect(_ sessionId: UUID) {
         updateSessionState(sessionId, to: .disconnected)
         markTerminalForReconnectReset(for: sessionId)
         scheduleSSHUnregister(for: sessionId)
