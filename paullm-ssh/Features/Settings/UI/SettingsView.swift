@@ -27,6 +27,7 @@ enum SettingsSelection: Hashable {
     case customActions
     case transcription
     case keychain
+    case knownHosts
     case sync
     case about
 }
@@ -52,6 +53,7 @@ struct SettingsView: View {
                 settingsRow("Custom Actions", icon: "command.square", tag: .customActions)
                 settingsRow("Transcription", icon: "waveform", tag: .transcription)
                 settingsRow("SSH Keys", icon: "key", tag: .keychain)
+                settingsRow("Known Hosts", icon: "checkmark.shield", tag: .knownHosts)
                 settingsRow("Sync", icon: "icloud", tag: .sync)
                 settingsRow("About", icon: "info.circle", tag: .about)
             }
@@ -109,6 +111,14 @@ struct SettingsView: View {
                             .navigationBarTitleDisplayMode(.inline)
                     } label: {
                         Label("SSH Keys", systemImage: "key")
+                    }
+
+                    NavigationLink {
+                        KnownHostsSettingsView()
+                            .navigationTitle("Known Hosts")
+                            .navigationBarTitleDisplayMode(.inline)
+                    } label: {
+                        Label("Known Hosts", systemImage: "checkmark.shield")
                     }
 
                     NavigationLink {
@@ -170,6 +180,10 @@ struct SettingsView: View {
             KeychainSettingsView()
                 .navigationTitle("SSH Keys")
                 .navigationSubtitle(String(localized: "Manage stored SSH keys"))
+        case .knownHosts:
+            KnownHostsSettingsView()
+                .navigationTitle("Known Hosts")
+                .navigationSubtitle(String(localized: "Pinned SSH host keys"))
         case .sync:
             SyncSettingsView()
                 .navigationTitle("Sync")
