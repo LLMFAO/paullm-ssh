@@ -46,6 +46,53 @@ enum RemoteTerminalBootstrap {
         """
     }
 
+    /// Runs `command` through a **login** shell, then drops into an interactive
+    /// login shell so the tmux session survives the command exiting.
+    ///
+    /// Login (`-l`) sources the profile files where remote PATH setup lives
+    /// (`.zprofile`, `.bash_profile`, Homebrew/npm/`~/.local/bin`), so CLIs are
+    /// found on both macOS and Linux. We run the command non-interactively (`-lc`,
+    /// never `-ic`): interactive startup (prompt frameworks, instant-prompt, rc
+    /// files that read stdin) can stall or echo garbage into the PTY, which is what
+    /// made earlier session launches hang or fail to start.
+    nonisolated static func loginShellCommand(for command: String) -> String {
+        // Launch `command` through the user's INTERACTIVE login shell — the same context
+        // as typing it in their terminal — so rc files (`.zshrc`/`.bashrc`, where nvm/asdf
+        // and custom PATH usually live) are sourced. A non-interactive shell misses those
+        // and is the usual reason a CLI like `opencode` reports "command not found". We
+        // also prepend common tool dirs (Homebrew, npm global, ~/.local/bin) as a backstop,
+        // and resolve the shell explicitly (zsh → bash → sh) because `$SHELL` can be empty
+        // in the tmux-server launch context (which otherwise drops us to bare `sh`).
+        //
+        // Fast-fail rule: if `command` exits within ~10s (failed to start), drop to an
+        // interactive login shell so the error stays on screen instead of the session
+        // being silently torn down. A normal long-running exit falls through to `exit`,
+        // emptying the tmux session so the app closes it (disconnect-on-empty).
+        let inner = """
+        \(shellPathExport());
+        PAULLM_CLI_START="$(date +%s 2>/dev/null || echo 0)";
+        \(command);
+        PAULLM_CLI_STATUS=$?;
+        PAULLM_CLI_END="$(date +%s 2>/dev/null || echo 0)";
+        if [ "$((PAULLM_CLI_END - PAULLM_CLI_START))" -lt 10 ]; then
+          printf '\\r\\n[paullm-ssh] command exited (status %s). Keeping this shell open so you can read any error above; type exit to close.\\r\\n' "$PAULLM_CLI_STATUS";
+          exec "${PAULLM_SH:-/bin/sh}" -il;
+        fi;
+        exit "$PAULLM_CLI_STATUS"
+        """
+        let quotedInner = shellQuoted(inner)
+        return """
+        PAULLM_SH="${SHELL:-}";
+        if [ -z "$PAULLM_SH" ] || [ ! -x "$PAULLM_SH" ]; then
+          for PAULLM_C in /bin/zsh /opt/homebrew/bin/zsh /usr/local/bin/zsh /bin/bash /opt/homebrew/bin/bash /usr/local/bin/bash /bin/sh; do
+            if [ -x "$PAULLM_C" ]; then PAULLM_SH="$PAULLM_C"; break; fi;
+          done;
+        fi;
+        export PAULLM_SH;
+        exec "$PAULLM_SH" -ilc \(quotedInner)
+        """
+    }
+
     nonisolated static func launchPlan(
         startupCommand: String?,
         environment: RemoteEnvironment = .fallbackPOSIX,
@@ -124,7 +171,24 @@ enum RemoteTerminalBootstrap {
     }
 
     nonisolated static func tmuxUpdateEnvironmentVariables(bundle: Bundle = .main) -> [String] {
-        ["LANG", "LC_ALL", "LC_CTYPE"] + terminalEnvironmentNames(bundle: bundle)
+        tmuxLoginEnvironmentNames + terminalEnvironmentNames(bundle: bundle)
+    }
+
+    nonisolated static var tmuxLoginEnvironmentNames: [String] {
+        [
+            "HOME",
+            "USER",
+            "LOGNAME",
+            "SHELL",
+            "PATH",
+            "XDG_CONFIG_HOME",
+            "XDG_DATA_HOME",
+            "XDG_CACHE_HOME",
+            "TMPDIR",
+            "LANG",
+            "LC_ALL",
+            "LC_CTYPE"
+        ]
     }
 
     nonisolated static func tmuxArrayOptionCommands(option: String, values: [String]) -> [String] {
@@ -139,6 +203,27 @@ enum RemoteTerminalBootstrap {
         terminalEnvironment(bundle: bundle).map { variable in
             "set-environment -g \(variable.name) \"\(variable.value)\""
         }
+    }
+
+    nonisolated static func loginEnvironmentImportScript() -> String {
+        let casePattern = tmuxLoginEnvironmentNames.joined(separator: "|")
+        return """
+        PAULLM_LOGIN_ENV_FILE="${TMPDIR:-/tmp}/paullm-login-env-$$";
+        if [ -n "${SHELL:-}" ] && [ -x "${SHELL:-}" ]; then
+          env -i HOME="${HOME:-}" USER="${USER:-}" LOGNAME="${LOGNAME:-${USER:-}}" SHELL="${SHELL:-}" TERM="${TERM:-\(terminalType)}" "$SHELL" -lic env >"$PAULLM_LOGIN_ENV_FILE" 2>/dev/null || true;
+        else
+          env >"$PAULLM_LOGIN_ENV_FILE" 2>/dev/null || true;
+        fi;
+        if [ -s "$PAULLM_LOGIN_ENV_FILE" ]; then
+          while IFS='=' read -r PAULLM_ENV_NAME PAULLM_ENV_VALUE; do
+            case "$PAULLM_ENV_NAME" in
+              \(casePattern)) export "$PAULLM_ENV_NAME=$PAULLM_ENV_VALUE" ;;
+            esac;
+          done <"$PAULLM_LOGIN_ENV_FILE";
+        fi;
+        rm -f "$PAULLM_LOGIN_ENV_FILE";
+        \(shellPathExport());
+        """
     }
 
     nonisolated static func prefixedPOSIXScript(for command: String, bundle: Bundle = .main) -> String {

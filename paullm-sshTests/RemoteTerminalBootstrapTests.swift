@@ -29,11 +29,9 @@ struct RemoteTerminalBootstrapTests {
 
         switch plan {
         case .shell:
-            Issue.record("Expected POSIX login shell bootstrap when no startup command is provided")
+            #expect(Bool(true))
         case .exec(let command):
-            #expect(command.hasPrefix("/bin/sh -lc "))
-            #expect(command.contains("exec \"$SHELL\" -l"))
-            #expect(command.contains("TERM_PROGRAM"))
+            Issue.record("Expected plain interactive shell when no startup command is provided, got \(command)")
         }
     }
 
@@ -108,5 +106,32 @@ struct RemoteTerminalBootstrapTests {
         let pastedPath = RemoteTerminalBootstrap.posixPastedPath("/tmp/vv term/file's name.png")
 
         #expect(pastedPath == "'/tmp/vv term/file'\\''s name.png'")
+    }
+
+    @Test
+    func tmuxEnvironmentIncludesLoginShellConfigLocationsWithoutSecretTokens() {
+        let names = RemoteTerminalBootstrap.tmuxUpdateEnvironmentVariables()
+
+        #expect(names.contains("HOME"))
+        #expect(names.contains("PATH"))
+        #expect(names.contains("SHELL"))
+        #expect(names.contains("XDG_CONFIG_HOME"))
+        #expect(names.contains("XDG_DATA_HOME"))
+        #expect(names.contains("XDG_CACHE_HOME"))
+        #expect(names.contains("TMPDIR"))
+        #expect(names.contains("TERM_PROGRAM"))
+        #expect(!names.contains { $0.contains("TOKEN") })
+        #expect(!names.contains { $0.contains("API_KEY") })
+    }
+
+    @Test
+    func loginEnvironmentImportScriptUsesLoginShellAndWhitelist() {
+        let script = RemoteTerminalBootstrap.loginEnvironmentImportScript()
+
+        #expect(script.contains("$SHELL\" -lic env"))
+        #expect(script.contains("case \"$PAULLM_ENV_NAME\""))
+        #expect(script.contains("HOME|USER|LOGNAME|SHELL|PATH"))
+        #expect(script.contains("XDG_CONFIG_HOME"))
+        #expect(script.contains(RemoteTerminalBootstrap.shellPathExport()))
     }
 }

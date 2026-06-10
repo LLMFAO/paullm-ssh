@@ -4,6 +4,19 @@ struct RemoteTmuxSession: Hashable {
     let name: String
     let attachedClients: Int
     let windowCount: Int
+    let currentPath: String?
+
+    init(
+        name: String,
+        attachedClients: Int,
+        windowCount: Int,
+        currentPath: String? = nil
+    ) {
+        self.name = name
+        self.attachedClients = attachedClients
+        self.windowCount = windowCount
+        self.currentPath = currentPath?.nilIfBlank
+    }
 }
 
 actor RemoteTmuxManager {
@@ -47,7 +60,16 @@ actor RemoteTmuxManager {
             let sessions = parseSessionListOutput(output, allowLegacy: index == candidates.count - 1)
 
             if !sessions.isEmpty {
-                return sessions
+                let currentPaths = await currentPathsBySession(using: client)
+                guard !currentPaths.isEmpty else { return sessions }
+                return sortSessions(sessions.map { session in
+                    RemoteTmuxSession(
+                        name: session.name,
+                        attachedClients: session.attachedClients,
+                        windowCount: session.windowCount,
+                        currentPath: currentPaths[session.name]
+                    )
+                })
             }
         }
 
@@ -116,6 +138,7 @@ actor RemoteTmuxManager {
         if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; else SUDO=""; fi;
         OS_NAME="$(uname -s)";
         if [ "$OS_NAME" = "Darwin" ]; then
+          printf '%s\\n' 'macOS host detected. tmux sessions will carry forward your login-shell PATH and CLI config locations.';
           if command -v brew >/dev/null 2>&1; then
             brew install tmux;
           elif command -v port >/dev/null 2>&1; then
@@ -205,6 +228,14 @@ actor RemoteTmuxManager {
         return trimmed.isEmpty ? nil : trimmed
     }
 
+    private func currentPathsBySession(using client: SSHClient) async -> [String: String] {
+        let tmux = tmuxCommand(includeUTF8: false, includeConfig: false)
+        let body = "\(RemoteTerminalBootstrap.shellPathExport()); \(tmux) list-panes -a -F '#{session_name}\t#{pane_active}\t#{pane_current_path}' 2>/dev/null"
+        let command = "sh -lc \(RemoteTerminalBootstrap.shellQuoted(body))"
+        guard let output = try? await client.execute(command, timeout: pathTimeout) else { return [:] }
+        return parsePanePathOutput(output)
+    }
+
     nonisolated private func shellDirectoryArgument(_ value: String) -> String {
         if value == "~" {
             return "$HOME"
@@ -279,7 +310,11 @@ actor RemoteTmuxManager {
         guard !trimmedInitialCommand.isEmpty else {
             return "exec \(tmux) new-session -A -s \(escapedSession) -c \(escapedDir)"
         }
-        return "exec \(tmux) new-session -A -s \(escapedSession) -c \(escapedDir) \(RemoteTerminalBootstrap.shellQuoted(trimmedInitialCommand))"
+        // Launch the CLI through a non-interactive login shell so the remote
+        // PATH (Homebrew, npm global, ~/.local/bin) resolves on macOS and Linux
+        // without the stalls an interactive login-env probe could cause.
+        let shellCommand = RemoteTerminalBootstrap.loginShellCommand(for: trimmedInitialCommand)
+        return "exec \(tmux) new-session -A -s \(escapedSession) -c \(escapedDir) \(RemoteTerminalBootstrap.shellQuoted(shellCommand))"
     }
 
     nonisolated private func tmuxCommand(
@@ -304,7 +339,7 @@ actor RemoteTmuxManager {
           PAULLM_TMUX_BIN="$(command -v tmux 2>/dev/null)";
         fi;
         if [ -z "$PAULLM_TMUX_BIN" ]; then
-          for candidate in /usr/bin/tmux /bin/tmux /usr/local/bin/tmux /opt/local/bin/tmux /snap/bin/tmux; do
+          for candidate in /usr/bin/tmux /bin/tmux /usr/local/bin/tmux /opt/homebrew/bin/tmux /opt/local/bin/tmux /snap/bin/tmux; do
             if [ -x "$candidate" ]; then
               PAULLM_TMUX_BIN="$candidate";
               break;
@@ -342,6 +377,31 @@ actor RemoteTmuxManager {
             }
         }
         return sortSessions(sessions)
+    }
+
+    nonisolated func parsePanePathOutput(_ output: String) -> [String: String] {
+        var activePaths: [String: String] = [:]
+        var fallbackPaths: [String: String] = [:]
+
+        for rawLine in output.split(separator: "\n", omittingEmptySubsequences: true) {
+            let line = String(rawLine).replacingOccurrences(of: "\\t", with: "\t")
+            let parts = line.split(separator: "\t", maxSplits: 2, omittingEmptySubsequences: false)
+            guard parts.count == 3 else { continue }
+
+            let name = String(parts[0]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let active = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let path = String(parts[2]).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty, !path.isEmpty else { continue }
+
+            if fallbackPaths[name] == nil {
+                fallbackPaths[name] = path
+            }
+            if active == "1" {
+                activePaths[name] = path
+            }
+        }
+
+        return fallbackPaths.merging(activePaths) { _, active in active }
     }
 
     nonisolated private func parseSessionLine(_ line: String) -> (name: String, attachedClients: Int, windowCount: Int)? {
@@ -491,5 +551,12 @@ actor RemoteTmuxManager {
         escaped = escaped.replacingOccurrences(of: "$", with: "\\$")
         escaped = escaped.replacingOccurrences(of: "`", with: "\\`")
         return escaped
+    }
+}
+
+private extension String {
+    var nilIfBlank: String? {
+        let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }

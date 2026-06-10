@@ -70,6 +70,19 @@ struct RemoteTmuxManagerParserTests {
     }
 
     @Test
+    func parsePanePathsPrefersActivePanePath() {
+        let output = """
+        dev\t0\t/srv/old
+        dev\t1\t/srv/current
+        ops\t0\t/var/log
+        """
+
+        let paths = RemoteTmuxManager.shared.parsePanePathOutput(output)
+        #expect(paths["dev"] == "/srv/current")
+        #expect(paths["ops"] == "/var/log")
+    }
+
+    @Test
     func attachExistingCommandFallsBackToLoginShell() {
         let command = RemoteTmuxManager.shared.attachExistingCommand(sessionName: "team session")
         #expect(command.contains("tmux has-session"))
@@ -87,6 +100,33 @@ struct RemoteTmuxManagerParserTests {
         #expect(script.contains("new-session -A -s"))
         #expect(script.contains("paullm_demo"))
         #expect(script.contains("/tmp/work dir"))
+        #expect(script.contains("macOS host detected"))
+        #expect(script.contains("carry forward your login-shell PATH and CLI config locations"))
+    }
+
+    @Test
+    func attachCommandLaunchesInitialCommandViaResolvedLoginShell() {
+        let command = RemoteTmuxManager.shared.attachCommand(
+            sessionName: "codex-1",
+            workingDirectory: "~",
+            initialCommand: "codex"
+        )
+
+        // Attaches when the session already exists, creates it otherwise.
+        #expect(command.contains("tmux"))
+        #expect(command.contains("has-session"))
+        #expect(command.contains("new-session -A -s"))
+        #expect(command.contains("codex-1"))
+        #expect(command.contains("codex"))
+
+        // The CLI launches through the resolved login shell for PATH and rc files.
+        #expect(command.contains("PAULLM_SH=\"${SHELL:-}\""))
+        #expect(command.contains("exec \"$PAULLM_SH\" -ilc"))
+
+        // Must NOT run the heavyweight interactive login-env harvest inline,
+        // which previously stalled session startup and broke the exec request.
+        #expect(!command.contains("-lic env"))
+        #expect(!command.contains("set-option -g default-command"))
     }
 
     @Test
@@ -98,6 +138,7 @@ struct RemoteTmuxManagerParserTests {
         #expect(probe.contains("/usr/bin/tmux"))
         #expect(probe.contains("/bin/tmux"))
         #expect(probe.contains("/usr/local/bin/tmux"))
+        #expect(probe.contains("/opt/homebrew/bin/tmux"))
         #expect(probe.contains("-V >/dev/null 2>&1"))
         #expect(probe.contains("__PAULLM_TMUX_OK__"))
     }
