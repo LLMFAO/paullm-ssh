@@ -38,3 +38,7 @@ fastlane/test_output
 
 # Code Injection
 iOSInjectionProject/
+
+# Local build output
+build/
+build-claude/
