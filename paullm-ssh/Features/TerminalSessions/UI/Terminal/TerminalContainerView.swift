@@ -32,6 +32,7 @@ struct TerminalContainerView: View {
     @State private var connectWatchdogToken = UUID()
     @State private var hasEstablishedConnection = false
     @StateObject private var richPasteUI = TerminalRichPasteUIModel()
+    @StateObject private var inputBufferManager = InputBufferManager.shared
     @AppStorage("sshAutoReconnect") private var autoReconnectEnabled = true
 
     /// Check if terminal already exists (was previously created)
@@ -238,14 +239,6 @@ struct TerminalContainerView: View {
                 onDisableTmux: { disableTmuxForServer() },
                 onInstallMosh: { Task { await installMoshServerAndReconnect() } }
             )
-            .sheet(isPresented: Binding(
-                get: { InputBufferManager.shared.isPresented },
-                set: { InputBufferManager.shared.isPresented = $0 }
-            )) {
-                InputBufferSheet { text in
-                    ConnectionSessionManager.shared.sendText(text, to: session.id)
-                }
-            }
     }
 
     @ViewBuilder
@@ -319,6 +312,14 @@ struct TerminalContainerView: View {
         )
         .task(id: fallbackReasonTaskID) { await applyFallbackBannerTask() }
         .terminalRichPastePrompt(using: richPasteUI)
+        .onReceive(NotificationCenter.default.publisher(for: .openInputBuffer)) { _ in
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+                inputBufferManager.isPresented = true
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            inputBufferInset
+        }
         .platformSessionAppearance(
             onAppearAction: {
                 #if os(macOS)
@@ -329,6 +330,20 @@ struct TerminalContainerView: View {
                 handleOnDisappearCleanup()
             }
         )
+    }
+
+    @ViewBuilder
+    private var inputBufferInset: some View {
+        if inputBufferManager.isPresented {
+            InputBufferInlineComposer(
+                canSend: session.connectionState.isConnected,
+                onVoice: voiceTriggerHandler,
+                onSend: { text in
+                    ConnectionSessionManager.shared.sendText(text, to: session.id)
+                }
+            )
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+        }
     }
 
     @ViewBuilder
