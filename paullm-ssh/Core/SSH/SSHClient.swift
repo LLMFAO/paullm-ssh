@@ -2041,7 +2041,7 @@ actor SSHSession {
                let stderr = String(data: request.stderr, encoding: .utf8)?
                 .trimmingCharacters(in: .whitespacesAndNewlines),
                !stderr.isEmpty {
-                logger.debug("Exec command stderr: \(stderr, privacy: .public)")
+                logger.debug("Exec command stderr: \(stderr, privacy: .private)")
             }
             let output = String(data: request.output, encoding: .utf8) ?? ""
             request.continuation.resume(returning: output)
