@@ -1804,6 +1804,17 @@ actor SSHSession {
         let interactiveThreshold = 100             // bytes - below this is interactive
         let bulkThreshold = 1000                   // bytes - above this is bulk
 
+        // Adaptive poll timeout for the I/O loop.
+        // Active (just-read or just-wrote) → 5 ms.
+        // Each consecutive idle pass doubles the timeout, capped at 250 ms.
+        // Resets to 5 ms the moment any byte moves.
+        // poll() still returns immediately when the socket becomes ready,
+        // so the wider timeout only bounds *empty* waits — no latency cost,
+        // but ~50× fewer wakeups per second on a fully idle connection.
+        var pollTimeoutMs: Int32 = 5
+        let pollTimeoutMin: Int32 = 5
+        let pollTimeoutMax: Int32 = 250
+
         while !Task.isCancelled, libssh2Session != nil {
             var didWork = false
 
@@ -1915,7 +1926,14 @@ actor SSHSession {
             }
 
             if !didWork {
-                await waitForSocket()
+                await waitForSocket(timeoutMs: pollTimeoutMs)
+                // Double the timeout, capped. Resets on the next pass that
+                // produces work.
+                if pollTimeoutMs < pollTimeoutMax {
+                    pollTimeoutMs = min(pollTimeoutMax, pollTimeoutMs * 2)
+                }
+            } else {
+                pollTimeoutMs = pollTimeoutMin
             }
 
             // Always yield to prevent starving other tasks (especially important during rapid typing)
@@ -2055,7 +2073,7 @@ actor SSHSession {
         }
     }
 
-    private func waitForSocket() async {
+    private func waitForSocket(timeoutMs: Int32 = 5) async {
         guard let session = libssh2Session, socket >= 0 else { return }
 
         let direction = libssh2_session_block_directions(session)
@@ -2074,8 +2092,12 @@ actor SSHSession {
             pfd.events |= Int16(POLLOUT)
         }
 
-        // Poll with 5ms timeout - short enough for responsiveness, long enough to avoid busy spinning
-        _ = poll(&pfd, 1, 5)
+        // Poll with caller-supplied timeout. The I/O loop widens this on
+        // consecutive idle passes (5 ms → 250 ms) so an idle connection
+        // stops waking the cooperative thread ~200 times per second.
+        // poll() still returns immediately when the socket becomes ready,
+        // so the wider timeout only bounds *empty* waits — no latency cost.
+        _ = poll(&pfd, 1, timeoutMs)
     }
 
     private func resolveNumericPeerAddress(for socket: Int32) -> String? {
