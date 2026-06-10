@@ -1220,7 +1220,7 @@ struct SSHTerminalPaneWrapper: NSViewRepresentable {
                                 )
                             }
                             return !hasOtherRegistrations
-                        case .authenticationFailed, .tailscaleAuthenticationNotAccepted, .cloudflareConfigurationRequired, .cloudflareAuthenticationFailed, .cloudflareTunnelFailed, .hostKeyVerificationFailed, .moshServerMissing, .moshBootstrapFailed, .moshSessionFailed, .unknown:
+                        case .authenticationFailed, .tailscaleAuthenticationNotAccepted, .cloudflareConfigurationRequired, .cloudflareAuthenticationFailed, .cloudflareTunnelFailed, .hostKeyVerificationFailed, .moshServerMissing, .moshBootstrapFailed, .moshSessionFailed, .hostKeyUnknown, .hostKeyMismatch, .unknown:
                             return false
                         }
                     },

@@ -137,6 +137,21 @@ final class KnownHostsManager: @unchecked Sendable {
         saveAll(entries)
     }
 
+    /// Record explicit user trust for a host key. Equivalent to
+    /// `save(entry:)` with the timestamps set to "now". Called by the UI
+    /// after the user approves the host-key prompt.
+    func preApprove(host: String, port: Int, fingerprint: String, keyType: Int) {
+        let now = Date()
+        save(entry: Entry(
+            host: host,
+            port: port,
+            fingerprint: fingerprint,
+            keyType: keyType,
+            addedAt: now,
+            lastSeenAt: now
+        ))
+    }
+
     /// Remove a single host:port entry. No-op if the entry does not exist.
     func removeEntry(host: String, port: Int) {
         lock.lock()

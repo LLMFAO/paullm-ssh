@@ -286,7 +286,7 @@ extension SSHTerminalCoordinator {
                             )
                         }
                         return !hasOtherRegistrations
-                    case .authenticationFailed, .tailscaleAuthenticationNotAccepted, .cloudflareConfigurationRequired, .cloudflareAuthenticationFailed, .cloudflareTunnelFailed, .hostKeyVerificationFailed, .moshServerMissing, .moshBootstrapFailed, .moshSessionFailed, .unknown:
+                    case .authenticationFailed, .tailscaleAuthenticationNotAccepted, .cloudflareConfigurationRequired, .cloudflareAuthenticationFailed, .cloudflareTunnelFailed, .hostKeyVerificationFailed, .moshServerMissing, .moshBootstrapFailed, .moshSessionFailed, .hostKeyUnknown, .hostKeyMismatch, .unknown:
                         return false
                     }
                 },
@@ -584,8 +584,15 @@ struct SSHTerminalWrapper: NSViewRepresentable {
             // If it is, the terminal is being reused by another view (e.g., split view)
             guard terminalView == nil else { return }
 
-            Task { @MainActor [self] in
-                cancelShell()
+            // Never capture `self` in a Task from deinit: it creates a strong reference
+            // to an object that is already being deallocated, which traps in
+            // swift_deallocClassInstance ("object retained after deinit") and aborts.
+            // terminalView is nil here, so mirror cancelShell() with captured values only.
+            shellTask?.cancel()
+            if let shellId {
+                Task.detached(priority: .high) { [sshClient, shellId] in
+                    await sshClient.closeShell(shellId)
+                }
             }
         }
     }
@@ -973,8 +980,21 @@ private struct SSHTerminalRepresentable: UIViewRepresentable {
         deinit {
             // Don't cleanup if session is still active (user just navigated away)
             guard !preserveSession else { return }
-            Task { @MainActor [self] in
-                cancelShell()
+
+            // Never capture `self` in a Task from deinit: it creates a strong reference
+            // to an object that is already being deallocated, which traps in
+            // swift_deallocClassInstance ("object retained after deinit") and aborts.
+            // Mirror cancelShell() using captured values only.
+            shellTask?.cancel()
+            if let shellId {
+                Task.detached(priority: .high) { [sshClient, shellId] in
+                    await sshClient.closeShell(shellId)
+                }
+            }
+            if let terminal = terminalView {
+                Task { @MainActor [terminal] in
+                    terminal.cleanup()
+                }
             }
         }
     }

@@ -1159,23 +1159,30 @@ actor SSHSession {
         if let entry = KnownHostsManager.shared.entry(for: host, port: port) {
             if entry.fingerprint != fingerprint {
                 logger.error("Host key mismatch for \(host):\(port). Known: \(entry.fingerprint), Presented: \(fingerprint)")
-                throw SSHError.hostKeyVerificationFailed
+                throw SSHError.hostKeyMismatch(
+                    host: host,
+                    port: port,
+                    knownFingerprint: entry.fingerprint,
+                    presentedFingerprint: fingerprint,
+                    keyType: keyType
+                )
             }
             KnownHostsManager.shared.updateSeen(host: host, port: port)
             logger.info("Host key verified for \(host):\(port)")
             return
         }
 
-        let entry = KnownHostsManager.Entry(
+        // First contact: never auto-trust. Surface a typed error to the
+        // caller so the UI can present a fingerprint prompt; on user
+        // approval the UI calls `KnownHostsManager.preApprove(...)` and
+        // retries the connection, which will then hit the matching path
+        // above.
+        throw SSHError.hostKeyUnknown(
             host: host,
             port: port,
             fingerprint: fingerprint,
-            keyType: keyType,
-            addedAt: Date(),
-            lastSeenAt: Date()
+            keyType: keyType
         )
-        KnownHostsManager.shared.save(entry: entry)
-        logger.info("Trusted new host key for \(host):\(port) (\(fingerprint))")
     }
 
     private func hostKeyFingerprint(for session: OpaquePointer) throws -> (String, Int) {
@@ -2796,7 +2803,12 @@ enum SSHError: LocalizedError {
     case timeout
     case channelOpenFailed
     case shellRequestFailed
+    /// Retained for callers that still match the legacy case. New code should
+    /// use `hostKeyUnknown` / `hostKeyMismatch` and present a fingerprint
+    /// prompt to the user.
     case hostKeyVerificationFailed
+    case hostKeyUnknown(host: String, port: Int, fingerprint: String, keyType: Int)
+    case hostKeyMismatch(host: String, port: Int, knownFingerprint: String, presentedFingerprint: String, keyType: Int)
     case socketError(String)
     case unknown(String)
 
@@ -2823,6 +2835,16 @@ enum SSHError: LocalizedError {
         case .channelOpenFailed: return "Failed to open channel"
         case .shellRequestFailed: return "Failed to request shell"
         case .hostKeyVerificationFailed: return "Host key verification failed"
+        case .hostKeyUnknown(let host, let port, let fingerprint, _):
+            return String(
+                format: String(localized: "Unknown host %@:%d. Fingerprint: %@"),
+                host, port, fingerprint
+            )
+        case .hostKeyMismatch(let host, let port, let knownFingerprint, let presentedFingerprint, _):
+            return String(
+                format: String(localized: "Host key for %@:%d has CHANGED. Known: %@, presented: %@. This can indicate a man-in-the-middle attack."),
+                host, port, knownFingerprint, presentedFingerprint
+            )
         case .socketError(let msg): return "Socket error: \(msg)"
         case .unknown(let msg): return "Unknown error: \(msg)"
         }
