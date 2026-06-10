@@ -1357,6 +1357,14 @@ extension ConnectionSessionManager {
         serverId: UUID,
         client: SSHClient
     ) async -> (command: String?, skipTmuxLifecycle: Bool) {
+        // Plain Shell session: skip the entire tmux resolution path. The
+        // session is a bare login shell with no command, no tmux server
+        // state, no attach prompt. CONT_PLAN 2.6.
+        if sessionWithID(sessionId)?.startup?.kind == .shell {
+            disableTmuxAttachment(for: sessionId, status: .off)
+            return (nil, true)
+        }
+
         guard tmuxResolver.isTmuxEnabled(for: serverId) else {
             disableTmuxAttachment(for: sessionId, status: .off)
             return (startupCommand(for: sessionId), true)
