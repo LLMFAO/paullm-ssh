@@ -56,6 +56,21 @@ struct TerminalSessionStartupTests {
     }
 
     @Test
+    func customStartupSanitizesSessionPrefix() {
+        let startup = TerminalSessionStartup.custom(
+            displayTitle: "Aider",
+            command: "aider --model sonnet",
+            sessionNamePrefix: "Aider CLI!"
+        )
+
+        #expect(startup.kind == .custom)
+        #expect(startup.displayTitle == "Aider")
+        #expect(startup.command == "aider --model sonnet")
+        #expect(startup.sessionNamePrefix == "aider-cli")
+        #expect(startup.bypassPermissions == false)
+    }
+
+    @Test
     func profileSeedingAddsStartupActionsIdempotently() {
         let now = Date(timeIntervalSince1970: 1234)
         let seeded = TerminalAccessoryProfile.defaultValue.ensuringDefaultStartupActions(now: now)
@@ -208,5 +223,96 @@ struct TerminalSessionStartupTests {
         
         #expect(resolver.sessionName(for: id1) != "claude-4")
         #expect(resolver.sessionName(for: id2) == "my-hand-made-session")
+    }
+
+    @MainActor @Test
+    func immediateManagedSelectionUsesIndexedAISessionNames() {
+        let resolver = TmuxAttachResolver()
+        let id = UUID()
+        let startup = TerminalSessionStartup(
+            kind: .codex,
+            actionID: UUID(),
+            displayTitle: "Codex CLI",
+            iconSystemName: "chevron.left.forwardslash.chevron.right",
+            command: "codex",
+            bypassPermissions: false
+        )
+
+        resolver.sessionNames[id] = "codex"
+        let selection = resolver.prepareManagedSelection(
+            for: id,
+            startup: startup,
+            existingSessionNames: ["codex-1"]
+        )
+
+        #expect(selection == .createManaged)
+        #expect(resolver.sessionName(for: id) == "codex-2")
+        #expect(resolver.sessionOwnership[id] == .managed)
+    }
+
+    @MainActor @Test
+    func immediateManagedSelectionAvoidsLocalAISessionNameCollisions() {
+        let resolver = TmuxAttachResolver()
+        let firstId = UUID()
+        let secondId = UUID()
+        let startup = TerminalSessionStartup(
+            kind: .opencode,
+            actionID: UUID(),
+            displayTitle: "OpenCode CLI",
+            iconSystemName: "curlybraces",
+            command: "opencode",
+            bypassPermissions: false
+        )
+
+        _ = resolver.prepareManagedSelection(for: firstId, startup: startup)
+        _ = resolver.prepareManagedSelection(for: secondId, startup: startup)
+
+        #expect(resolver.sessionName(for: firstId) == "opencode-1")
+        #expect(resolver.sessionName(for: secondId) == "opencode-2")
+    }
+
+    @MainActor @Test
+    func immediateManagedSelectionUsesCustomSessionPrefix() {
+        let resolver = TmuxAttachResolver()
+        let id = UUID()
+        let startup = TerminalSessionStartup.custom(
+            displayTitle: "Aider",
+            command: "aider --model sonnet",
+            sessionNamePrefix: "Aider CLI!"
+        )
+
+        let selection = resolver.prepareManagedSelection(
+            for: id,
+            startup: startup,
+            existingSessionNames: ["aider-cli-1"]
+        )
+
+        #expect(selection == .createManaged)
+        #expect(resolver.sessionName(for: id) == "aider-cli-2")
+
+        resolver.clearAttachmentState(for: id)
+        #expect(resolver.sessionName(for: id) != "aider-cli-2")
+    }
+
+    @Test
+    func tmuxStartupCommandRunsInitialCommandThroughLoginShell() {
+        let command = RemoteTmuxManager.shared.attachCommand(
+            sessionName: "opencode-1",
+            workingDirectory: "~",
+            initialCommand: "opencode"
+        )
+
+        #expect(command.contains("opencode"))
+        #expect(command.contains("$SHELL"))
+        // The CLI runs through a non-interactive login shell (`-lc`), never an
+        // interactive one (`-ic`): interactive startup could stall or echo garbage
+        // into the PTY.
+        #expect(command.contains("-lc"))
+        #expect(!command.contains("-ic"))
+        // The CLI is not `exec`'d: after it exits (finished, crashed, or "command not
+        // found") we drop into an interactive login shell so the tmux session stays
+        // alive. It ends only on Ctrl-D / disconnect, not when the CLI exits.
+        #expect(command.contains("exec \"$SHELL\" -l"))
+        #expect(command.contains("exec sh -l"))
     }
 }

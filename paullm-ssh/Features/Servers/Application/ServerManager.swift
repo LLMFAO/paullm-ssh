@@ -1312,6 +1312,7 @@ enum paullm_sshError: LocalizedError {
     case connectionFailed(String)
     case authenticationFailed
     case timeout
+    case encodingFailed
 
     var errorDescription: String? {
         switch self {
@@ -1328,6 +1329,8 @@ enum paullm_sshError: LocalizedError {
             return String(localized: "Authentication failed")
         case .timeout:
             return String(localized: "Connection timed out")
+        case .encodingFailed:
+            return String(localized: "Text encoding failed")
         }
     }
 
