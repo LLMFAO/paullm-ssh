@@ -50,6 +50,10 @@ final class ConnectionSessionManager: ObservableObject {
 
     @Published var tmuxAttachPrompt: TmuxAttachPrompt?
 
+    /// Currently displayed host-key trust prompt, if any. The iOS and macOS
+    /// root views bind to this and present the matching alert/sheet.
+    @Published var hostKeyPrompt: HostKeyPrompt?
+
     let tmuxResolver = TmuxAttachResolver()
 
     /// Legacy single server ID for backward compatibility
@@ -1156,6 +1160,39 @@ extension ConnectionSessionManager {
         tmuxAttachPrompt = prompt
     }
 
+    /// Record that a host-key prompt is awaiting a decision.
+    func setHostKeyPrompt(_ prompt: HostKeyPrompt?) {
+        hostKeyPrompt = prompt
+    }
+
+    /// User accepted an unknown host key. Persist the trust decision and
+    /// clear the prompt; the caller is expected to retry the connection.
+    func approveHostKeyPrompt(promptId: UUID) {
+        guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
+        KnownHostsManager.shared.preApprove(
+            host: prompt.host,
+            port: prompt.port,
+            fingerprint: prompt.presentedFingerprint,
+            keyType: prompt.keyType
+        )
+        hostKeyPrompt = nil
+    }
+
+    /// User dismissed a changed-key prompt by removing the stale pin. The
+    /// next connection attempt will surface a fresh "unknown" prompt that
+    /// the user must confirm against the new fingerprint.
+    func removeStaleHostKeyAndRePrompt(promptId: UUID) {
+        guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
+        KnownHostsManager.shared.removeEntry(host: prompt.host, port: prompt.port)
+        hostKeyPrompt = nil
+    }
+
+    /// User dismissed the prompt without taking action.
+    func cancelHostKeyPrompt(promptId: UUID) {
+        guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
+        hostKeyPrompt = nil
+    }
+
     func resolveTmuxAttachPrompt(sessionId: UUID, selection: TmuxAttachSelection) {
         tmuxResolver.resolvePrompt(entityId: sessionId, selection: selection, setPrompt: setTmuxAttachPrompt)
     }
@@ -1443,6 +1480,7 @@ extension ConnectionSessionManager {
         selectedViewByServer = [:]
         selectedSessionByServer = [:]
         tmuxAttachPrompt = nil
+        hostKeyPrompt = nil
         shellRegistry.removeAll()
         shellCancelHandlers.removeAll()
         shellSuspendHandlers.removeAll()

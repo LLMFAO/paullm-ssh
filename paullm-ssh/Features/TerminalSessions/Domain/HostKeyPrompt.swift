@@ -24,6 +24,19 @@ struct HostKeyPrompt: Identifiable, Equatable {
     let kind: Kind
 }
 
+extension HostKeyPrompt.Kind {
+    /// Localized alert title appropriate for the kind of decision the user
+    /// is being asked to make.
+    var warningTitle: String {
+        switch self {
+        case .unknown:
+            return String(localized: "Verify Host Key")
+        case .changed:
+            return String(localized: "Host Key Changed")
+        }
+    }
+}
+
 extension SSHError {
     /// Build a `HostKeyPrompt` from the typed host-key errors thrown by
     /// `SSHClient.verifyHostKey()`. Returns nil for other error cases.

@@ -151,6 +151,37 @@ struct ConnectionTerminalContainer: View {
         #endif
     }
 
+    private var hostKeyPromptPresented: Binding<Bool> {
+        Binding(
+            get: { hostKeyPrompt != nil },
+            set: { newValue in
+                if !newValue, let prompt = hostKeyPrompt {
+                    tabManager.cancelHostKeyPrompt(promptId: prompt.id)
+                }
+            }
+        )
+    }
+
+    private var hostKeyPrompt: HostKeyPrompt? {
+        guard let prompt = tabManager.hostKeyPrompt else { return nil }
+        guard tabManager.paneStates[prompt.id]?.serverId == server.id else { return nil }
+        return prompt
+    }
+
+    private func hostKeyPromptMessage(_ prompt: HostKeyPrompt) -> String {
+        let hostPort = "\(prompt.host):\(prompt.port)"
+        let serverLine = String(format: String(localized: "Server: %@"), prompt.serverName)
+        let hostLine = String(format: String(localized: "Host: %@"), hostPort)
+        let presentedLine = String(format: String(localized: "Fingerprint (SHA256): %@"), prompt.presentedFingerprint)
+        switch prompt.kind {
+        case .unknown:
+            return "\(serverLine)\n\(hostLine)\n\n\(presentedLine)\n\n\(String(localized: "Verify this matches the host key advertised by your server before trusting it."))"
+        case .changed(let known):
+            let knownLine = String(format: String(localized: "Known fingerprint: %@"), known)
+            return "\(String(localized: "Host Key Changed"))\n\n\(serverLine)\n\(hostLine)\n\n\(String(localized: "Previously trusted:"))\n\(knownLine)\n\n\(String(localized: "Server now presents:"))\n\(presentedLine)\n\n\(String(localized: "This can indicate a man-in-the-middle attack. Only continue if the key was rotated on purpose."))"
+        }
+    }
+
     private var liveTerminalBackgroundColor: Color {
         ThemeColorParser.backgroundColor(for: effectiveThemeName)!
     }
@@ -218,6 +249,30 @@ struct ConnectionTerminalContainer: View {
                         tabManager.resolveTmuxAttachPrompt(paneId: prompt.id, selection: selection)
                     }
                 )
+            }
+            .alert(
+                hostKeyPrompt?.kind.warningTitle ?? String(localized: "Verify Host Key"),
+                isPresented: hostKeyPromptPresented,
+                presenting: hostKeyPrompt
+            ) { prompt in
+                switch prompt.kind {
+                case .unknown:
+                    Button(String(localized: "Trust & Connect")) {
+                        tabManager.approveHostKeyPrompt(promptId: prompt.id)
+                    }
+                    Button("Cancel", role: .cancel) {
+                        tabManager.cancelHostKeyPrompt(promptId: prompt.id)
+                    }
+                case .changed:
+                    Button(String(localized: "Remove Old Key & Reconnect"), role: .destructive) {
+                        tabManager.removeStaleHostKeyAndRePrompt(promptId: prompt.id)
+                    }
+                    Button("Cancel", role: .cancel) {
+                        tabManager.cancelHostKeyPrompt(promptId: prompt.id)
+                    }
+                }
+            } message: { prompt in
+                Text(hostKeyPromptMessage(prompt))
             }
             .sheet(isPresented: $showingNewTerminalSessionPicker) {
                 NewTerminalSessionPicker(

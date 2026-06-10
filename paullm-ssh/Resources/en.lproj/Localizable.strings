@@ -1004,3 +1004,21 @@
 "Paste Text Instead" = "Paste Text Instead";
 "Always Upload skips this prompt next time." = "Always Upload skips this prompt next time.";
 "Image ready to upload" = "Image ready to upload";
+
+/* Host Key Trust */
+"Verify Host Key" = "Verify Host Key";
+"Host Key Changed" = "Host Key Changed";
+"Trust & Connect" = "Trust & Connect";
+"Remove Old Key & Reconnect" = "Remove Old Key & Reconnect";
+"Server: %@" = "Server: %@";
+"Host: %@" = "Host: %@";
+"Fingerprint (SHA256): %@" = "Fingerprint (SHA256): %@";
+"Verify this matches the host key advertised by your server before trusting it." = "Verify this matches the host key advertised by your server before trusting it.";
+"Previously trusted:" = "Previously trusted:";
+"Known fingerprint: %@" = "Known fingerprint: %@";
+"Server now presents:" = "Server now presents:";
+"This can indicate a man-in-the-middle attack. Only continue if the key was rotated on purpose." = "This can indicate a man-in-the-middle attack. Only continue if the key was rotated on purpose.";
+
+/* Host Key Errors */
+"Unknown host %@:%d. Fingerprint: %@" = "Unknown host %@:%d. Fingerprint: %@";
+"Host key for %@:%d has CHANGED. Known: %@, presented: %@. This can indicate a man-in-the-middle attack." = "Host key for %@:%d has CHANGED. Known: %@, presented: %@. This can indicate a man-in-the-middle attack.";

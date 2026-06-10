@@ -1237,6 +1237,18 @@ struct SSHTerminalPaneWrapper: NSViewRepresentable {
                             }
                         }
                         await MainActor.run {
+                            if let sshError = error as? SSHError,
+                               let prompt = sshError.hostKeyPrompt(
+                                   sessionId: paneId,
+                                   serverId: server.id,
+                                   serverName: server.name
+                               ) {
+                                // Surface the typed host-key error as a
+                                // prompt the macOS view layer will present
+                                // as an alert.
+                                TerminalTabManager.shared.setHostKeyPrompt(prompt)
+                                return
+                            }
                             TerminalTabManager.shared.updatePaneState(paneId, connectionState: .failed(error.localizedDescription))
                         }
                     }

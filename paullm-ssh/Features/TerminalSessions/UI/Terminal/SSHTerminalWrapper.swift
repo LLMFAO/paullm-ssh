@@ -303,6 +303,17 @@ extension SSHTerminalCoordinator {
                         }
                     }
                     await MainActor.run {
+                        if let sshError = error as? SSHError,
+                           let prompt = sshError.hostKeyPrompt(
+                               sessionId: sessionId,
+                               serverId: server.id,
+                               serverName: server.name
+                           ) {
+                            // Surface the typed host-key error as a prompt
+                            // the iOS view layer will present as an alert.
+                            ConnectionSessionManager.shared.setHostKeyPrompt(prompt)
+                            return
+                        }
                         ConnectionSessionManager.shared.updateSessionState(sessionId, to: .failed(error.localizedDescription))
                     }
                 }

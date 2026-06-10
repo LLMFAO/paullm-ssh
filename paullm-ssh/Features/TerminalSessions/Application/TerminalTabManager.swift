@@ -57,6 +57,9 @@ final class TerminalTabManager: ObservableObject {
 
     @Published var tmuxAttachPrompt: TmuxAttachPrompt?
 
+    /// Currently displayed host-key trust prompt for a macOS tab pane.
+    @Published var hostKeyPrompt: HostKeyPrompt?
+
     let tmuxResolver = TmuxAttachResolver()
 
     /// Bumps when a terminal view is registered/unregistered so views refresh.
@@ -623,6 +626,36 @@ final class TerminalTabManager: ObservableObject {
         tmuxAttachPrompt = prompt
     }
 
+    /// Record that a host-key prompt is awaiting a decision.
+    func setHostKeyPrompt(_ prompt: HostKeyPrompt?) {
+        hostKeyPrompt = prompt
+    }
+
+    /// User accepted an unknown host key. Persist the trust decision.
+    func approveHostKeyPrompt(promptId: UUID) {
+        guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
+        KnownHostsManager.shared.preApprove(
+            host: prompt.host,
+            port: prompt.port,
+            fingerprint: prompt.presentedFingerprint,
+            keyType: prompt.keyType
+        )
+        hostKeyPrompt = nil
+    }
+
+    /// User dismissed a changed-key prompt by removing the stale pin.
+    func removeStaleHostKeyAndRePrompt(promptId: UUID) {
+        guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
+        KnownHostsManager.shared.removeEntry(host: prompt.host, port: prompt.port)
+        hostKeyPrompt = nil
+    }
+
+    /// User dismissed the prompt without taking action.
+    func cancelHostKeyPrompt(promptId: UUID) {
+        guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
+        hostKeyPrompt = nil
+    }
+
     private func clearTmuxRuntimeState(for paneId: UUID) {
         tmuxResolver.clearRuntimeState(for: paneId, setPrompt: setTmuxAttachPrompt)
     }
@@ -1132,6 +1165,7 @@ extension TerminalTabManager {
         selectedViewByServer = [:]
         paneStates = [:]
         tmuxAttachPrompt = nil
+        hostKeyPrompt = nil
         terminalRegistryVersion = 0
         terminalViews.removeAll()
         shellRegistry.removeAll()
