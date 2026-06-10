@@ -116,9 +116,16 @@ struct ServerStatsView: View {
 
                     // Top Processes - always show, empty state handled inside
                     ProcessesCard(processes: statsCollector.stats.topProcesses, surfaceStyle: cardSurfaceStyle)
+
+                    // Live tmux sessions on the host, with a per-session kill control.
+                    TmuxSessionsCard(
+                        server: server,
+                        isVisible: isVisible,
+                        surfaceStyle: cardSurfaceStyle,
+                        clientProvider: sharedClientProvider
+                    )
                 }
                 .padding()
-                .drawingGroup()
             }
 
             if isVisible, let error = statsCollector.connectionError {
@@ -163,6 +170,146 @@ struct ServerStatsView: View {
     private func makeTaskKey() -> String {
         let clientId = sharedClientProvider().map { ObjectIdentifier($0).hashValue } ?? 0
         return "\(server.id.uuidString)-\(isVisible)-\(clientId)"
+    }
+}
+
+// MARK: - tmux Sessions Card
+
+/// Lists the host's live tmux sessions (ground truth from `tmux list-sessions`) and
+/// lets the user end any of them. Ending one server-side cascades: an app session
+/// attached to it sees its channel close and is removed from the sessions list.
+private struct TmuxSessionsCard: View {
+    let server: Server
+    let isVisible: Bool
+    let surfaceStyle: StatsCardSurfaceStyle
+    let clientProvider: () -> SSHClient?
+
+    @State private var sessions: [RemoteTmuxSession] = []
+    @State private var isLoading = false
+    @State private var hasLoadedOnce = false
+    @State private var killingNames: Set<String> = []
+    @State private var pendingKill: RemoteTmuxSession?
+
+    private var hasClient: Bool { clientProvider() != nil }
+
+    private var taskKey: String {
+        let clientId = clientProvider().map { ObjectIdentifier($0).hashValue } ?? 0
+        return "\(server.id.uuidString)-\(isVisible)-\(clientId)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("tmux Sessions", systemImage: "rectangle.stack")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    Task { await load() }
+                } label: {
+                    if isLoading {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isLoading || !hasClient)
+            }
+
+            if !hasClient {
+                Text("Connect to this server to view and manage its tmux sessions.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if sessions.isEmpty {
+                Text(hasLoadedOnce ? "No active tmux sessions." : "Loading sessions…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(sessions, id: \.name) { session in
+                    sessionRow(session)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .statsCardSurface(surfaceStyle)
+        .task(id: taskKey) {
+            if isVisible { await load() }
+        }
+        .confirmationDialog(
+            pendingKill.map { "End “\($0.name)”?" } ?? "",
+            isPresented: Binding(
+                get: { pendingKill != nil },
+                set: { if !$0 { pendingKill = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("End Session", role: .destructive) {
+                if let session = pendingKill {
+                    pendingKill = nil
+                    Task { await kill(session) }
+                }
+            }
+            Button("Cancel", role: .cancel) { pendingKill = nil }
+        } message: {
+            Text("This ends the tmux session on the host. Anything running in it stops and unsaved work is lost.")
+        }
+    }
+
+    private func sessionRow(_ session: RemoteTmuxSession) -> some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(session.name)
+                    .font(.subheadline)
+                Text(detail(for: session))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            if killingNames.contains(session.name) {
+                ProgressView()
+            } else {
+                Button(role: .destructive) {
+                    pendingKill = session
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.red)
+                        .imageScale(.large)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("End \(session.name)")
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func detail(for session: RemoteTmuxSession) -> String {
+        let windows = String(format: String(localized: "%d windows"), max(1, session.windowCount))
+        var parts = [windows]
+        if let currentPath = session.currentPath {
+            parts.append(currentPath)
+        }
+        if session.attachedClients > 0 {
+            parts.append(String(localized: "attached"))
+        }
+        return parts.joined(separator: " · ")
+    }
+
+    private func load() async {
+        guard let client = clientProvider() else { return }
+        isLoading = true
+        let result = await RemoteTmuxManager.shared.listSessions(using: client)
+        sessions = result
+        isLoading = false
+        hasLoadedOnce = true
+    }
+
+    private func kill(_ session: RemoteTmuxSession) async {
+        guard let client = clientProvider() else { return }
+        killingNames.insert(session.name)
+        await RemoteTmuxManager.shared.killSession(named: session.name, using: client)
+        killingNames.remove(session.name)
+        await load()
     }
 }
 
