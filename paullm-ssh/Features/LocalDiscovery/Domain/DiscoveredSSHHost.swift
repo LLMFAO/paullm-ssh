@@ -59,17 +59,20 @@ struct ServerFormPrefill: Equatable, Sendable {
     var host: String
     var port: Int
     var username: String?
+    var connectionMode: SSHConnectionMode
 
     init(
         name: String,
         host: String,
         port: Int = 22,
-        username: String? = nil
+        username: String? = nil,
+        connectionMode: SSHConnectionMode = .standard
     ) {
         self.name = name
         self.host = host
         self.port = port
         self.username = username
+        self.connectionMode = connectionMode
     }
 
     init(discoveredHost: DiscoveredSSHHost) {
@@ -77,5 +80,6 @@ struct ServerFormPrefill: Equatable, Sendable {
         self.host = discoveredHost.host
         self.port = discoveredHost.port
         self.username = nil
+        self.connectionMode = .standard
     }
 }

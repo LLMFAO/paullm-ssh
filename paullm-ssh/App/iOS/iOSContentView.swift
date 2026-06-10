@@ -139,6 +139,7 @@ struct iOSServerListView: View {
     @State private var navigationBarAppearanceToken = UUID()
     @State private var addServerPrefill: ServerFormPrefill?
     @State private var queuedDiscoveryPrefill: ServerFormPrefill?
+    @State private var isOnTailnet = false
     @AppStorage("appearanceMode") private var appearanceMode = AppearanceMode.system.rawValue
 
     private var canAddServer: Bool {
@@ -163,6 +164,9 @@ struct iOSServerListView: View {
                     onAddServer: { presentAddServer() },
                     onAddWorkspace: { showingAddWorkspace = true },
                     onDiscoverLocalDevices: { showingLocalDiscovery = true },
+                    onAddTailscaleHost: isOnTailnet
+                        ? { presentAddServer(prefill: ServerFormPrefill(name: "", host: "", connectionMode: .tailscale)) }
+                        : nil,
                     requiresWorkspace: serverManager.workspaces.isEmpty
                 )
             }
@@ -194,6 +198,7 @@ struct iOSServerListView: View {
         }
         .onAppear {
             navigationBarAppearanceToken = UUID()
+            isOnTailnet = TailscaleNetworkDetector.isOnTailnet()
         }
         .sheet(isPresented: $showingAddServer) {
             NavigationStack {

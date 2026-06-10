@@ -105,6 +105,7 @@ struct NoServersEmptyState: View {
     let onAddServer: () -> Void
     var onAddWorkspace: (() -> Void)? = nil
     var onDiscoverLocalDevices: (() -> Void)? = nil
+    var onAddTailscaleHost: (() -> Void)? = nil
     var requiresWorkspace = false
 
     var body: some View {
@@ -174,6 +175,21 @@ struct NoServersEmptyState: View {
                     HStack(spacing: 8) {
                         Image(systemName: "dot.radiowaves.left.and.right")
                         Text(String(localized: "Discover Local Devices"))
+                            .fontWeight(.medium)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 10)
+                    .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    .foregroundStyle(.primary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            if let onAddTailscaleHost, !requiresWorkspace {
+                Button(action: onAddTailscaleHost) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "network")
+                        Text(String(localized: "Add Tailscale Host"))
                             .fontWeight(.medium)
                     }
                     .padding(.horizontal, 20)

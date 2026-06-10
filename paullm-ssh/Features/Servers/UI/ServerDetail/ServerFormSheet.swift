@@ -51,7 +51,11 @@ enum ServerTransportSelection: String, CaseIterable, Identifiable, Equatable {
     }
 
     init(server: Server) {
-        switch server.connectionMode {
+        self.init(connectionMode: server.connectionMode)
+    }
+
+    init(connectionMode: SSHConnectionMode) {
+        switch connectionMode {
         case .tailscale:
             self = .tailscale
         case .mosh:
@@ -198,6 +202,7 @@ struct ServerFormSheet: View {
             _host = State(initialValue: prefill.host)
             _port = State(initialValue: String(prefill.port))
             _username = State(initialValue: prefill.username ?? "")
+            _transportSelection = State(initialValue: ServerTransportSelection(connectionMode: prefill.connectionMode))
             _tmuxEnabled = State(initialValue: Self.defaultTmuxEnabled())
             _tmuxStartupBehavior = State(initialValue: Self.defaultTmuxStartupBehavior())
         } else {
@@ -1035,6 +1040,7 @@ struct ServerFormSheet: View {
         if let username = prefill.username, !username.isEmpty {
             self.username = username
         }
+        transportSelection = ServerTransportSelection(connectionMode: prefill.connectionMode)
         resetConnectionTestState()
     }
 
