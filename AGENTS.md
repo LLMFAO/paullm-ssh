@@ -2,6 +2,13 @@
 
 Cross-platform (iOS/macOS) SSH terminal app with iCloud sync and Keychain credential storage.
 
+> **Resuming work?** Read [`docs/CONTINUATION_PLAN.md`](docs/CONTINUATION_PLAN.md)
+> first — it has the current TestFlight build state, the release runbook (archive +
+> upload commands, App Store Connect API key location), the session log of recent
+> fixes (tmux loading, last-session crash, CLI-exit disconnect, Tailscale prompt,
+> existing-sessions picker, Shell session kind), the UX backlog, and the pending
+> AI-Toolkit design decision. The working tree has substantial uncommitted work.
+
 ## Target Versions
 
 - **macOS**: 13.3+ (Ventura), arm64 only
@@ -183,7 +190,7 @@ Safe refactor expectation:
 
 ### Data Sync
 - **CloudKit** for server/workspace sync across devices
-- Container: `iCloud.app.vivy.VivyTerm`
+- Container: `iCloud.app.paullm.ssh`
 - Local fallback via UserDefaults
 
 ### Pro Tier (StoreKit 2)
@@ -263,6 +270,6 @@ struct ConnectionSession: Identifiable {
 1. **Never apply glass to terminal content** - only navigation/toolbars
 2. **Deduplicate by ID** when syncing from CloudKit
 3. **Pro limits enforced in**: `ServerManager.canAddServer`, `canAddWorkspace`, `ConnectionSessionManager.canOpenNewTab`
-4. **Keychain credentials** are NOT synced - only server metadata syncs via CloudKit
+4. **Credential sync**: server metadata syncs via CloudKit; credentials (passwords, SSH keys, passphrases, Cloudflare tokens) sync via iCloud Keychain when sync is enabled (see KeychainStore.set's iCloudSync parameter). Nothing credential-shaped goes through CloudKit.
 5. **iOS keyboard toolbar** provides Esc, Tab, Ctrl, arrows, function keys
 6. **Voice-to-command** uses MLX Whisper/Parakeet on-device or Apple Speech fallback

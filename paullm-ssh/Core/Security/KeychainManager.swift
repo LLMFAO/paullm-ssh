@@ -176,13 +176,6 @@ final class KeychainManager {
         logger.info("Deleted credentials for server \(serverId.uuidString)")
     }
 
-    // MARK: - iCloud Sync
-
-    func enableiCloudSync(for serverId: UUID) throws {
-        // Already enabled by default in store operations
-        logger.info("iCloud sync enabled for server \(serverId.uuidString)")
-    }
-
     // MARK: - Key Generation
 
     private func passwordKey(for serverId: UUID) -> String {
