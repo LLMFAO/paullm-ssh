@@ -61,7 +61,7 @@ struct TmuxAttachPromptSheet: View {
                             confirm(.attachExisting(sessionName: session.name))
                         } label: {
                             HStack(spacing: 10) {
-                                TerminalSessionKindBadge(startup: nil, showTitle: false)
+                                TerminalSessionKindBadge(startup: session.startup, showTitle: false)
                                     .foregroundStyle(.secondary)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(session.name)
@@ -96,7 +96,7 @@ struct TmuxAttachPromptSheet: View {
                             confirm(.attachExisting(sessionName: session.name))
                         } label: {
                             HStack(spacing: 10) {
-                                TerminalSessionKindBadge(startup: nil, showTitle: false)
+                                TerminalSessionKindBadge(startup: session.startup, showTitle: false)
                                     .foregroundStyle(.secondary)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(session.name)
@@ -160,7 +160,11 @@ struct TmuxAttachPromptSheet: View {
             )
         }
 
-        return [attachment, clients, windows].joined(separator: " • ")
+        var parts = [attachment, clients, windows]
+        if let currentPath = session.currentPath {
+            parts.append(currentPath)
+        }
+        return parts.joined(separator: " • ")
     }
 
     private var actionRow: some View {

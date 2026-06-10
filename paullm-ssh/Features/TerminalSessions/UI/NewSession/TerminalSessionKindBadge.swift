@@ -34,18 +34,25 @@ struct TerminalSessionKindIcon: View {
     let kind: TerminalSessionKind
 
     var body: some View {
-        Image(kind.iconAssetName)
-            .renderingMode(renderingMode)
-            .resizable()
-            .scaledToFit()
-            .frame(width: 16, height: 16)
+        if kind == .custom || kind == .shell {
+            Image(systemName: kind.iconSystemName)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
+        } else {
+            Image(kind.iconAssetName)
+                .renderingMode(renderingMode)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
+        }
     }
 
     private var renderingMode: Image.TemplateRenderingMode {
         switch kind {
         case .claude, .antigravity, .codex:
             return .original
-        case .tmux, .opencode:
+        case .tmux, .shell, .opencode, .custom:
             return .template
         }
     }

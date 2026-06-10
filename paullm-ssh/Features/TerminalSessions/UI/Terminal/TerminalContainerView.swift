@@ -883,10 +883,14 @@ struct TerminalContainerView: View {
 
 struct TerminalEmptyStateView: View {
     let server: Server?
+    var remoteSessions: [TmuxAttachSessionInfo] = []
+    var isLoadingRemoteSessions = false
     let onNewTerminal: () -> Void
+    var onAttachRemoteSession: (TmuxAttachSessionInfo) -> Void = { _ in }
+    var onRefreshRemoteSessions: () -> Void = {}
 
     var body: some View {
-        VStack(spacing: 24) {
+        VStack(spacing: 20) {
             Spacer()
 
             VStack(spacing: 16) {
@@ -905,6 +909,16 @@ struct TerminalEmptyStateView: View {
                 }
             }
 
+            if isLoadingRemoteSessions || !remoteSessions.isEmpty {
+                RemoteTmuxSessionList(
+                    sessions: remoteSessions,
+                    isLoading: isLoadingRemoteSessions,
+                    onAttach: onAttachRemoteSession,
+                    onRefresh: onRefreshRemoteSessions
+                )
+                .frame(maxWidth: 520)
+            }
+
             Button(action: onNewTerminal) {
                 HStack(spacing: 8) {
                     Image(systemName: "plus")
@@ -921,6 +935,93 @@ struct TerminalEmptyStateView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+private struct RemoteTmuxSessionList: View {
+    let sessions: [TmuxAttachSessionInfo]
+    let isLoading: Bool
+    let onAttach: (TmuxAttachSessionInfo) -> Void
+    let onRefresh: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Remote tmux sessions", systemImage: "rectangle.stack")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+
+                Spacer()
+
+                Button(action: onRefresh) {
+                    Image(systemName: "arrow.clockwise")
+                }
+                .buttonStyle(.plain)
+                .disabled(isLoading)
+                .accessibilityLabel("Refresh remote tmux sessions")
+            }
+
+            if isLoading && sessions.isEmpty {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Checking for existing sessions...")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            } else {
+                VStack(spacing: 6) {
+                    ForEach(sessions) { session in
+                        Button {
+                            onAttach(session)
+                        } label: {
+                            HStack(spacing: 10) {
+                                TerminalSessionKindBadge(startup: session.startup, showTitle: false)
+                                    .foregroundStyle(.secondary)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(session.name)
+                                        .font(.callout)
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                    Text(sessionDetailText(for: session))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+
+                                Spacer()
+
+                                Image(systemName: "arrow.turn.down.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(10)
+                            .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func sessionDetailText(for session: TmuxAttachSessionInfo) -> String {
+        let clients = session.attachedClients == 1
+            ? String(localized: "1 attached client")
+            : String(format: String(localized: "%lld attached clients"), Int64(session.attachedClients))
+        let windows = session.windowCount == 1
+            ? String(localized: "1 window")
+            : String(format: String(localized: "%lld windows"), Int64(session.windowCount))
+        var parts = [clients, windows]
+        if let currentPath = session.currentPath {
+            parts.append(currentPath)
+        }
+        return parts.joined(separator: " - ")
     }
 }
 

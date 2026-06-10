@@ -12,12 +12,21 @@ final class TmuxAttachResolver {
     var sessionOwnership: [UUID: SessionOwnership] = [:]
 
     private let customSessionNamesKey = "paullm.customSessionNames"
+    private let generatedSessionNameEntityIDsKey = "paullm.generatedSessionNameEntityIDs"
     private var customSessionNames: [String: String] {
         get {
             UserDefaults.standard.dictionary(forKey: customSessionNamesKey) as? [String: String] ?? [:]
         }
         set {
             UserDefaults.standard.set(newValue, forKey: customSessionNamesKey)
+        }
+    }
+    private var generatedSessionNameEntityIDs: Set<String> {
+        get {
+            Set(UserDefaults.standard.stringArray(forKey: generatedSessionNameEntityIDsKey) ?? [])
+        }
+        set {
+            UserDefaults.standard.set(Array(newValue), forKey: generatedSessionNameEntityIDsKey)
         }
     }
 
@@ -75,6 +84,10 @@ final class TmuxAttachResolver {
     }
 
     func setCustomSessionName(_ name: String?, for entityId: UUID) {
+        var generatedIDs = generatedSessionNameEntityIDs
+        generatedIDs.remove(entityId.uuidString)
+        generatedSessionNameEntityIDs = generatedIDs
+
         if let name, !name.isEmpty {
             customSessionNames[entityId.uuidString] = name
             sessionNames[entityId] = name
@@ -86,14 +99,17 @@ final class TmuxAttachResolver {
     // MARK: - Attachment State
 
     func clearAttachmentState(for entityId: UUID) {
+        var generatedIDs = generatedSessionNameEntityIDs
         if let customName = customSessionNames[entityId.uuidString] {
-            let isAISessionName = TerminalSessionKind.allCases.filter { $0 != .tmux }.contains { kind in
+            let isAISessionName = TerminalSessionKind.allCases.filter { $0 != .tmux && $0 != .custom }.contains { kind in
                 customName.hasPrefix("\(kind.rawValue)-")
             }
-            if isAISessionName {
+            if isAISessionName || generatedIDs.contains(entityId.uuidString) {
                 customSessionNames.removeValue(forKey: entityId.uuidString)
             }
         }
+        generatedIDs.remove(entityId.uuidString)
+        generatedSessionNameEntityIDs = generatedIDs
         sessionNames.removeValue(forKey: entityId)
         sessionOwnership.removeValue(forKey: entityId)
     }
@@ -126,6 +142,24 @@ final class TmuxAttachResolver {
         }
     }
 
+    func prepareManagedSelection(
+        for entityId: UUID,
+        startup: TerminalSessionStartup?,
+        existingSessionNames: Set<String> = []
+    ) -> TmuxAttachSelection {
+        if sessionOwnership[entityId] == .external {
+            return .attachExisting(sessionName: sessionName(for: entityId))
+        }
+
+        if let startup, startup.kind != .tmux {
+            assignTypedSessionName(for: entityId, startup: startup, existingSessionNames: existingSessionNames)
+        } else {
+            sessionNames[entityId] = managedSessionName(for: entityId)
+        }
+        sessionOwnership[entityId] = .managed
+        return .createManaged
+    }
+
     // MARK: - Selection Resolution
 
     func resolveSelection(
@@ -153,27 +187,13 @@ final class TmuxAttachResolver {
         }
 
         if let startup, startup.kind != .tmux {
-            if let customName = customSessionNames[entityId.uuidString] {
-                sessionNames[entityId] = customName
-                sessionOwnership[entityId] = .managed
-                return .createManaged
-            }
-            
             let sessions = await RemoteTmuxManager.shared.listSessions(using: client)
             let existingNames = Set(sessions.map { $0.name })
-            
-            let kindName = startup.kind.rawValue
-            var index = 1
-            var candidateName = "\(kindName)-\(index)"
-            while existingNames.contains(candidateName) {
-                index += 1
-                candidateName = "\(kindName)-\(index)"
-            }
-            
-            customSessionNames[entityId.uuidString] = candidateName
-            sessionNames[entityId] = candidateName
-            sessionOwnership[entityId] = .managed
-            return .createManaged
+            return prepareManagedSelection(
+                for: entityId,
+                startup: startup,
+                existingSessionNames: existingNames
+            )
         }
 
         let behavior = tmuxStartupBehavior(for: serverId)
@@ -287,7 +307,9 @@ final class TmuxAttachResolver {
             TmuxAttachSessionInfo(
                 name: $0.name,
                 attachedClients: max(0, $0.attachedClients),
-                windowCount: max(1, $0.windowCount)
+                windowCount: max(1, $0.windowCount),
+                currentPath: $0.currentPath,
+                startup: TerminalSessionStartup.displayStartup(forExistingTmuxSessionName: $0.name)
             )
         }
     }
@@ -350,5 +372,46 @@ final class TmuxAttachResolver {
 
     private func ownership(for sessionName: String) -> SessionOwnership {
         isCurrentDeviceManagedSessionName(sessionName) ? .managed : .external
+    }
+
+    private func assignTypedSessionName(
+        for entityId: UUID,
+        startup: TerminalSessionStartup,
+        existingSessionNames: Set<String>
+    ) {
+        if let customName = customSessionNames[entityId.uuidString] {
+            sessionNames[entityId] = customName
+            return
+        }
+
+        let prefix = sessionNamePrefix(for: startup)
+        if let currentName = sessionNames[entityId],
+           !currentName.isEmpty,
+           currentName != startup.kind.rawValue {
+            customSessionNames[entityId.uuidString] = currentName
+            return
+        }
+
+        var reservedNames = existingSessionNames
+        reservedNames.formUnion(sessionNames.values)
+
+        var index = 1
+        var candidateName = "\(prefix)-\(index)"
+        while reservedNames.contains(candidateName) {
+            index += 1
+            candidateName = "\(prefix)-\(index)"
+        }
+
+        customSessionNames[entityId.uuidString] = candidateName
+        sessionNames[entityId] = candidateName
+        var generatedIDs = generatedSessionNameEntityIDs
+        generatedIDs.insert(entityId.uuidString)
+        generatedSessionNameEntityIDs = generatedIDs
+    }
+
+    private func sessionNamePrefix(for startup: TerminalSessionStartup) -> String {
+        TerminalSessionStartup.sanitizedSessionNamePrefix(startup.sessionNamePrefix)
+            ?? TerminalSessionStartup.sanitizedSessionNamePrefix(startup.kind.rawValue)
+            ?? "custom"
     }
 }

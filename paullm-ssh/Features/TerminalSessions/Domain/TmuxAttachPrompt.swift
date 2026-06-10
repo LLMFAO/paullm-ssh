@@ -4,6 +4,8 @@ struct TmuxAttachSessionInfo: Identifiable, Equatable {
     let name: String
     let attachedClients: Int
     let windowCount: Int
+    let currentPath: String?
+    var startup: TerminalSessionStartup?
 
     var id: String { name }
 }

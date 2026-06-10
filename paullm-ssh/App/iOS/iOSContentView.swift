@@ -728,6 +728,10 @@ struct iOSTerminalView: View {
     @State private var showingZenPanel = false
     @State private var requestedTerminalDismissal = false
     @State private var showingNewTerminalSessionPicker = false
+    @State private var showingToolkit = false
+    @State private var showingToolkitEntryDetail: ToolkitEntry?
+    @State private var remoteTmuxSessionsByServer: [UUID: [TmuxAttachSessionInfo]] = [:]
+    @State private var loadingRemoteTmuxSessionServerIds: Set<UUID> = []
 
     @SceneStorage("paullm.zenMode.ios") private var isZenModeEnabled = false
 
@@ -755,6 +759,19 @@ struct iOSTerminalView: View {
             return serverManager.servers.first { $0.id == currentServerId }
         }
         return connectingServer
+    }
+
+    private var remoteTmuxSessionsForSelectedServer: [TmuxAttachSessionInfo] {
+        guard let serverId = selectedServer?.id else { return [] }
+        let activeSessionNames = Set(serverSessions.compactMap { session in
+            sessionManager.tmuxSessionName(for: session.id)
+        })
+        return (remoteTmuxSessionsByServer[serverId] ?? []).filter { !activeSessionNames.contains($0.name) }
+    }
+
+    private var isLoadingRemoteTmuxSessionsForSelectedServer: Bool {
+        guard let serverId = selectedServer?.id else { return false }
+        return loadingRemoteTmuxSessionServerIds.contains(serverId)
     }
 
     private var fileTabServerId: UUID? {
@@ -1072,13 +1089,47 @@ struct iOSTerminalView: View {
             }
             .sheet(isPresented: $showingNewTerminalSessionPicker) {
                 if let server = selectedServer {
+                    let browseClient = sessionManager.sharedStatsClient(for: server.id)
                     NewTerminalSessionPicker(
                         server: server,
+                        existingSessions: remoteTmuxSessionsByServer[server.id] ?? [],
+                        loadedSessionNames: loadedTmuxSessionNames(for: server.id),
+                        isLoadingExistingSessions: loadingRemoteTmuxSessionServerIds.contains(server.id),
                         onCancel: {
                             showingNewTerminalSessionPicker = false
                         },
                         onCreate: { startup in
                             showingNewTerminalSessionPicker = false
+                            createNewTerminalSession(on: server, startup: startup)
+                        },
+                        onAttachExisting: { info in
+                            showingNewTerminalSessionPicker = false
+                            attachOrFocusExistingTmuxSession(info, on: server)
+                        },
+                        onSetupToolkit: { entry in
+                            showingNewTerminalSessionPicker = false
+                            showingToolkitEntryDetail = entry
+                        },
+                        onResolveStartPath: browseClient.map { client in
+                            { (try? await client.resolveHomeDirectory()) ?? "/" }
+                        },
+                        onLoadDirectories: browseClient.map { client in
+                            { path in
+                                try await client.listDirectory(at: path)
+                                    .filter { $0.type == .directory }
+                                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+                            }
+                        }
+                    )
+                }
+            }
+            .sheet(item: $showingToolkitEntryDetail) { entry in
+                if let server = selectedServer {
+                    ToolkitEntryDetailView(
+                        entry: entry,
+                        manager: ToolkitManager(server: server),
+                        onOpenSession: { startup in
+                            showingToolkitEntryDetail = nil
                             createNewTerminalSession(on: server, startup: startup)
                         }
                     )
@@ -1492,7 +1543,35 @@ struct iOSTerminalView: View {
             showingTabLimitAlert = true
             return
         }
+        // Refresh the remote tmux session list so the picker can offer existing
+        // sessions (and show which are already loaded) alongside the new options.
+        refreshRemoteTmuxSessions()
         showingNewTerminalSessionPicker = true
+    }
+
+    /// Names of tmux sessions currently loaded (open) in the app for a server.
+    private func loadedTmuxSessionNames(for serverId: UUID) -> Set<String> {
+        Set(
+            sessionManager.sessions
+                .filter { $0.serverId == serverId }
+                .compactMap { sessionManager.tmuxSessionName(for: $0.id) }
+        )
+    }
+
+    /// Attach to an existing remote tmux session, or focus it if it's already loaded.
+    private func attachOrFocusExistingTmuxSession(_ info: TmuxAttachSessionInfo, on server: Server) {
+        if let loaded = sessionManager.sessions.first(where: {
+            $0.serverId == server.id && sessionManager.tmuxSessionName(for: $0.id) == info.name
+        }) {
+            sessionManager.selectedViewByServer[server.id] = viewTabConfig.isTabVisible(ConnectionViewTab.terminal.id)
+                ? ConnectionViewTab.terminal.id
+                : viewTabConfig.effectiveDefaultTab()
+            currentServerId = server.id
+            shouldShowTerminalBySession[loaded.id] = true
+            sessionManager.selectedSessionId = loaded.id
+            return
+        }
+        attachRemoteTmuxSession(info)
     }
 
     private func createNewTerminalSession(on server: Server, startup: TerminalSessionStartup) {
@@ -1510,6 +1589,41 @@ struct iOSTerminalView: View {
                 }
             } catch {
                 // No-op: user cancelled biometric auth or open failed.
+            }
+        }
+    }
+
+    private func attachRemoteTmuxSession(_ remoteSession: TmuxAttachSessionInfo) {
+        guard let server = selectedServer else { return }
+        Task {
+            do {
+                let session = try await sessionManager.openExistingTmuxSession(named: remoteSession.name, on: server)
+                await MainActor.run {
+                    sessionManager.selectedViewByServer[server.id] = viewTabConfig.isTabVisible(ConnectionViewTab.terminal.id)
+                        ? ConnectionViewTab.terminal.id
+                        : viewTabConfig.effectiveDefaultTab()
+                    currentServerId = server.id
+                    shouldShowTerminalBySession[session.id] = true
+                    reconnectTokenBySession[session.id] = session.id
+                    sessionManager.selectedSessionId = session.id
+                    remoteTmuxSessionsByServer[server.id]?.removeAll { $0.name == remoteSession.name }
+                }
+            } catch {
+                // No-op: user cancelled biometric auth or open failed.
+            }
+        }
+    }
+
+    private func refreshRemoteTmuxSessions() {
+        guard selectedView == "terminal", let server = selectedServer else { return }
+        guard !loadingRemoteTmuxSessionServerIds.contains(server.id) else { return }
+
+        loadingRemoteTmuxSessionServerIds.insert(server.id)
+        Task {
+            let sessions = await sessionManager.remoteTmuxSessions(for: server)
+            await MainActor.run {
+                remoteTmuxSessionsByServer[server.id] = sessions
+                loadingRemoteTmuxSessionServerIds.remove(server.id)
             }
         }
     }
