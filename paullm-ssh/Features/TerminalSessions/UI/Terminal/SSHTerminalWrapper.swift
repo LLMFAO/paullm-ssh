@@ -311,7 +311,13 @@ extension SSHTerminalCoordinator {
                            ) {
                             // Surface the typed host-key error as a prompt
                             // the iOS view layer will present as an alert.
+                            // Also transition to .failed so the session is
+                            // not stuck in .connecting — the failed-state UI
+                            // already shows a Retry button that uses the
+                            // same reconnect path the prompt's approval
+                            // buttons will trigger.
                             ConnectionSessionManager.shared.setHostKeyPrompt(prompt)
+                            ConnectionSessionManager.shared.updateSessionState(sessionId, to: .failed(error.localizedDescription))
                             return
                         }
                         ConnectionSessionManager.shared.updateSessionState(sessionId, to: .failed(error.localizedDescription))

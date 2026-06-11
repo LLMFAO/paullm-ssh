@@ -660,7 +660,9 @@ final class TerminalTabManager: ObservableObject {
         hostKeyPrompt = prompt
     }
 
-    /// User accepted an unknown host key. Persist the trust decision.
+    /// User accepted an unknown host key. Persist the trust decision,
+    /// clear the prompt, and kick a pane reconnect so the new trust
+    /// decision actually attempts a new connection.
     func approveHostKeyPrompt(promptId: UUID) {
         guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
         KnownHostsManager.shared.preApprove(
@@ -670,19 +672,36 @@ final class TerminalTabManager: ObservableObject {
             keyType: prompt.keyType
         )
         hostKeyPrompt = nil
+        kickPaneReconnectAfterHostKeyDecision(paneId: promptId)
     }
 
     /// User dismissed a changed-key prompt by removing the stale pin.
+    /// The next connection attempt will surface a fresh "unknown" prompt
+    /// that the user must confirm against the new fingerprint.
     func removeStaleHostKeyAndRePrompt(promptId: UUID) {
         guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
         KnownHostsManager.shared.removeEntry(host: prompt.host, port: prompt.port)
         hostKeyPrompt = nil
+        kickPaneReconnectAfterHostKeyDecision(paneId: promptId)
     }
 
-    /// User dismissed the prompt without taking action.
+    /// User dismissed the prompt without taking action. Make sure the
+    /// pane leaves the .connecting state — the failed-state UI already
+    /// offers a Retry button.
     func cancelHostKeyPrompt(promptId: UUID) {
         guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
         hostKeyPrompt = nil
+        if let state = paneStates[promptId], state.connectionState.isConnecting {
+            updatePaneState(promptId, connectionState: .failed(String(localized: "Host key not trusted")))
+        }
+    }
+
+    private func kickPaneReconnectAfterHostKeyDecision(paneId: UUID) {
+        guard paneStates[paneId] != nil else { return }
+        updatePaneState(paneId, connectionState: .connecting)
+        Task { [weak self] in
+            await self?.unregisterSSHClient(for: paneId)
+        }
     }
 
     private func clearTmuxRuntimeState(for paneId: UUID) {

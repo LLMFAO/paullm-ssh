@@ -1242,8 +1242,14 @@ struct SSHTerminalPaneWrapper: NSViewRepresentable {
                                ) {
                                 // Surface the typed host-key error as a
                                 // prompt the macOS view layer will present
-                                // as an alert.
+                                // as an alert. Also transition to .failed so
+                                // the pane is not stuck in .connecting — the
+                                // failed-state UI already shows a Retry
+                                // button that uses the same pane-level
+                                // unregister/retry path the prompt's
+                                // approval buttons will trigger.
                                 TerminalTabManager.shared.setHostKeyPrompt(prompt)
+                                TerminalTabManager.shared.updatePaneState(paneId, connectionState: .failed(error.localizedDescription))
                                 return
                             }
                             TerminalTabManager.shared.updatePaneState(paneId, connectionState: .failed(error.localizedDescription))

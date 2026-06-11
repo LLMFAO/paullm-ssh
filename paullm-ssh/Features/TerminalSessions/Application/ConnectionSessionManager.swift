@@ -1408,7 +1408,9 @@ extension ConnectionSessionManager {
     }
 
     /// User accepted an unknown host key. Persist the trust decision and
-    /// clear the prompt; the caller is expected to retry the connection.
+    /// clear the prompt. The SFTP/Files path resumes its suspended
+    /// continuation; the terminal path retries the connection so the user's
+    /// trust decision actually attempts a new connection.
     func approveHostKeyPrompt(promptId: UUID) {
         guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
         KnownHostsManager.shared.preApprove(
@@ -1419,23 +1421,36 @@ extension ConnectionSessionManager {
         )
         hostKeyPrompt = nil
         resumeHostKeyApproval(promptId: promptId, approved: true)
+        retryConnectionAfterHostKeyDecision(sessionId: promptId)
     }
 
-    /// User dismissed a changed-key prompt by removing the stale pin. The
-    /// next connection attempt will surface a fresh "unknown" prompt that
-    /// the user must confirm against the new fingerprint.
+    /// User dismissed a changed-key prompt by removing the stale pin.
+    /// The next connection attempt will surface a fresh "unknown" prompt
+    /// that the user must confirm against the new fingerprint.
     func removeStaleHostKeyAndRePrompt(promptId: UUID) {
         guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
         KnownHostsManager.shared.removeEntry(host: prompt.host, port: prompt.port)
         hostKeyPrompt = nil
         resumeHostKeyApproval(promptId: promptId, approved: false)
+        retryConnectionAfterHostKeyDecision(sessionId: promptId)
     }
 
-    /// User dismissed the prompt without taking action.
+    /// User dismissed the prompt without taking action. Make sure the
+    /// session leaves the .connecting state — the failed-state UI already
+    /// offers a Retry button.
     func cancelHostKeyPrompt(promptId: UUID) {
         guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
         hostKeyPrompt = nil
         resumeHostKeyApproval(promptId: promptId, approved: false)
+        if let current = sessionWithID(promptId),
+           current.connectionState.isConnecting {
+            updateSessionState(promptId, to: .failed(String(localized: "Host key not trusted")))
+        }
+    }
+
+    private func retryConnectionAfterHostKeyDecision(sessionId: UUID) {
+        guard let session = sessionWithID(sessionId) else { return }
+        Task { try? await reconnect(session: session) }
     }
 
     func resolveTmuxAttachPrompt(sessionId: UUID, selection: TmuxAttachSelection) {
