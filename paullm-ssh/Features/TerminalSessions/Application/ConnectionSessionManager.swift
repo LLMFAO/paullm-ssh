@@ -210,6 +210,44 @@ final class ConnectionSessionManager: ObservableObject {
 
     // MARK: - Open Connection
 
+    /// Returns the tmux session name attached to a given session, if any.
+    /// Used by the existing-sessions picker (CONT_PLAN 2.5) to filter
+    /// already-loaded sessions out of the host's tmux list.
+    func tmuxSessionName(for sessionId: UUID) -> String? {
+        tmuxResolver.sessionName(for: sessionId)
+    }
+
+    /// Lists the host's live tmux sessions via the server's active SSH
+    /// client. Returns an empty array if no client is connected or the
+    /// remote exec fails. Used by the existing-sessions picker
+    /// (CONT_PLAN 2.5).
+    func remoteTmuxSessions(for server: Server) async -> [TmuxAttachSessionInfo] {
+        guard let client = sshClient(for: server.id) else { return [] }
+        guard let remote = try? await RemoteTmuxManager.shared.listSessions(using: client) else {
+            return []
+        }
+        return remote.map { session in
+            TmuxAttachSessionInfo(
+                name: session.name,
+                attachedClients: max(0, session.attachedClients),
+                windowCount: max(1, session.windowCount),
+                currentPath: session.currentPath,
+                startup: TerminalSessionStartup.displayStartup(forExistingTmuxSessionName: session.name)
+            )
+        }
+    }
+
+    /// Open a session that immediately attaches to a named tmux session
+    /// already running on the host. Used by the existing-sessions picker
+    /// (CONT_PLAN 2.5).
+    func openExistingTmuxSession(
+        named sessionName: String,
+        on server: Server
+    ) async throws -> ConnectionSession {
+        let startup = TerminalSessionStartup.existingTmuxSession(named: sessionName)
+        return try await openConnection(to: server, forceNew: true, startup: startup)
+    }
+
     /// Opens a connection to a server
     /// - Parameters:
     ///   - server: The server to connect to
@@ -220,6 +258,9 @@ final class ConnectionSessionManager: ObservableObject {
         startup: TerminalSessionStartup? = nil
     ) async throws -> ConnectionSession {
         // Check if server is locked due to downgrade
+        if ServerManager.shared.isServerLocked(server) {
+            throw paullm_sshError.serverLocked(server.name)
+        }
         if ServerManager.shared.isServerLocked(server) {
             throw paullm_sshError.serverLocked(server.name)
         }
