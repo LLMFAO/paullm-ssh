@@ -1808,9 +1808,13 @@ actor SSHSession {
         // Active (just-read or just-wrote) → 5 ms.
         // Each consecutive idle pass doubles the timeout, capped at 250 ms.
         // Resets to 5 ms the moment any byte moves.
-        // poll() still returns immediately when the socket becomes ready,
-        // so the wider timeout only bounds *empty* waits — no latency cost,
-        // but ~50× fewer wakeups per second on a fully idle connection.
+        // The idle poll runs OFF the actor (`waitForSocketOffActor`) so a
+        // keystroke arriving on `write(_:to:)` does not wait behind the
+        // (up to 250 ms) poll — the actor is free to process the write,
+        // whose bytes then wake the in-flight poll via POLLIN. Inbound
+        // data also wakes the poll immediately. The wider timeout only
+        // bounds *empty* waits, so an idle connection wakes the
+        // cooperative thread ~4× per second instead of ~200×.
         var pollTimeoutMs: Int32 = 5
         let pollTimeoutMin: Int32 = 5
         let pollTimeoutMax: Int32 = 250
@@ -1926,7 +1930,13 @@ actor SSHSession {
             }
 
             if !didWork {
-                await waitForSocket(timeoutMs: pollTimeoutMs)
+                // Run the idle poll OFF the actor. With the actor free, a
+                // keystroke arriving on `write(_:to:)` runs immediately; the
+                // bytes it sends wake the in-flight poll via POLLIN. Using
+                // the actor-bound `waitForSocket(timeoutMs:)` here would
+                // serialize the write behind the (up to 250 ms) idle poll
+                // — a visible typing hiccup.
+                await waitForSocketOffActor(timeoutMs: pollTimeoutMs)
                 // Double the timeout, capped. Resets on the next pass that
                 // produces work.
                 if pollTimeoutMs < pollTimeoutMax {
@@ -2098,6 +2108,45 @@ actor SSHSession {
         // poll() still returns immediately when the socket becomes ready,
         // so the wider timeout only bounds *empty* waits — no latency cost.
         _ = poll(&pfd, 1, timeoutMs)
+    }
+
+    /// Like `waitForSocket(timeoutMs:)` but runs the blocking `poll()` off
+    /// the actor. Used by the I/O loop's idle path so a wider timeout (up
+    /// to 250 ms) does not serialize incoming `write(_:to:)` calls — a
+    /// keystroke that arrives while the loop sits in a long idle poll must
+    /// not wait for the poll to expire before the write can start. The
+    /// short-timeout retry paths in read/write/exec continue to use the
+    /// actor-bound `waitForSocket(timeoutMs:)` because there is no queued
+    /// write to release.
+    private func waitForSocketOffActor(timeoutMs: Int32) async {
+        guard let session = libssh2Session, socket >= 0 else { return }
+
+        let direction = libssh2_session_block_directions(session)
+        guard direction != 0 else { return }
+
+        var pfd = pollfd()
+        pfd.fd = socket
+        pfd.events = 0
+        if direction & LIBSSH2_SESSION_BLOCK_INBOUND != 0 {
+            pfd.events |= Int16(POLLIN)
+        }
+        if direction & LIBSSH2_SESSION_BLOCK_OUTBOUND != 0 {
+            pfd.events |= Int16(POLLOUT)
+        }
+
+        // Suspend the actor while a global queue does the blocking poll.
+        // A keystroke arriving on the actor's `write(_:to:)` path will run
+        // immediately; the bytes it writes wake the in-flight poll via
+        // POLLIN. If the socket is closed mid-poll (e.g. `disconnect()` /
+        // `abort()` from another thread) the poll returns with POLLNVAL /
+        // error and the loop's next iteration sees `libssh2Session == nil`
+        // and exits.
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                _ = poll(&pfd, 1, timeoutMs)
+                cont.resume()
+            }
+        }
     }
 
     private func resolveNumericPeerAddress(for socket: Int32) -> String? {
