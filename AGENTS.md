@@ -3,11 +3,11 @@
 Cross-platform (iOS/macOS) SSH terminal app with iCloud sync and Keychain credential storage.
 
 > **Resuming work?** Read [`docs/CONTINUATION_PLAN.md`](docs/CONTINUATION_PLAN.md)
-> first — it has the current TestFlight build state, the release runbook (archive +
-> upload commands, App Store Connect API key location), the session log of recent
-> fixes (tmux loading, last-session crash, CLI-exit disconnect, Tailscale prompt,
-> existing-sessions picker, Shell session kind), the UX backlog, and the pending
-> AI-Toolkit design decision. The working tree has substantial uncommitted work.
+> first — it has the current TestFlight build state (latest live build
+> `2026.822.906`), the release runbook (archive + upload commands, App Store
+> Connect API key location), what's shipped on `remediation/full-ship`, the UX
+> backlog, and the pending AI-Toolkit design decision. The working tree is clean —
+> everything through the Aug 22 About-page fixes is committed and on TestFlight.
 
 ## Target Versions
 

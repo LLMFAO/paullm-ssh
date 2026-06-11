@@ -226,35 +226,53 @@ final class ConnectionSessionManager: ObservableObject {
         tmuxResolver.sessionName(for: sessionId)
     }
 
-    /// Lists the host's live tmux sessions via the server's active SSH
-    /// client. Returns an empty array if no client is connected or the
-    /// remote exec fails. Used by the existing-sessions picker
-    /// (CONT_PLAN 2.5).
+    /// Lists the host's live tmux sessions. If the picker is invoked
+    /// from a server list (no SSH connection yet), this opens a short-
+    /// lived SSH client, lists the sessions, and disconnects. If a
+    /// client is already active for this server, reuse it. Returns an
+    /// empty array on failure (logged, not surfaced). Internal
+    /// `paullm_*` managed sessions are filtered out by the resolver
+    /// unless they are currently attached.
     func remoteTmuxSessions(for server: Server) async -> [TmuxAttachSessionInfo] {
-        guard let client = tmuxCapableClient(for: server.id) else { return [] }
-        guard let remote = try? await RemoteTmuxManager.shared.listSessions(using: client) else {
-            return []
+        guard tmuxResolver.isTmuxEnabled(for: server.id) else { return [] }
+        guard await AppLockManager.shared.ensureServerUnlocked(server) else { return [] }
+
+        if let client = tmuxCapableClient(for: server.id) {
+            let sessions = await RemoteTmuxManager.shared.listSessions(using: client)
+            return tmuxResolver.sessionInfosForPrompt(from: sessions)
         }
-        return remote.map { session in
-            TmuxAttachSessionInfo(
-                name: session.name,
-                attachedClients: max(0, session.attachedClients),
-                windowCount: max(1, session.windowCount),
-                currentPath: session.currentPath,
-                startup: TerminalSessionStartup.displayStartup(forExistingTmuxSessionName: session.name)
-            )
+
+        do {
+            let credentials = try KeychainManager.shared.getCredentials(for: server)
+            let client = SSHClient()
+            _ = try await client.connect(to: server, credentials: credentials)
+            let sessions = await RemoteTmuxManager.shared.listSessions(using: client)
+            await client.disconnect()
+            return tmuxResolver.sessionInfosForPrompt(from: sessions)
+        } catch {
+            logger.warning("Failed to list remote tmux sessions for \(server.name, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            return []
         }
     }
 
     /// Open a session that immediately attaches to a named tmux session
     /// already running on the host. Used by the existing-sessions picker
-    /// (CONT_PLAN 2.5).
+    /// (CONT_PLAN 2.5). Records the attachment selection on the resolver
+    /// so a reconnect of this tab reattaches to the same named session
+    /// (and `paullmManaged` mode does not silently attach to a different
+    /// managed session).
     func openExistingTmuxSession(
         named sessionName: String,
         on server: Server
     ) async throws -> ConnectionSession {
         let startup = TerminalSessionStartup.existingTmuxSession(named: sessionName)
-        return try await openConnection(to: server, forceNew: true, startup: startup)
+        let session = try await openConnection(to: server, forceNew: true, startup: startup)
+        tmuxResolver.updateAttachmentState(
+            for: session.id,
+            selection: .attachExisting(sessionName: sessionName),
+            setPrompt: setTmuxAttachPrompt
+        )
+        return session
     }
 
     /// Opens a connection to a server
@@ -267,9 +285,6 @@ final class ConnectionSessionManager: ObservableObject {
         startup: TerminalSessionStartup? = nil
     ) async throws -> ConnectionSession {
         // Check if server is locked due to downgrade
-        if ServerManager.shared.isServerLocked(server) {
-            throw paullm_sshError.serverLocked(server.name)
-        }
         if ServerManager.shared.isServerLocked(server) {
             throw paullm_sshError.serverLocked(server.name)
         }

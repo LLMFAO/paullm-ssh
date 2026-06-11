@@ -1,9 +1,12 @@
 # paullm-ssh — Continuation Plan & Session Log
 
-> Working context for resuming this work from the Claude CLI. Last updated 2026-05-31.
-> Branch: `codex/typed-coding-sessions`. Lots of uncommitted work in the tree (the
-> in-progress Toolkit feature **plus** the fixes below). Nothing here has been
-> committed yet — see "Git / commit strategy".
+> Working context for resuming this work from the CLI. Last updated 2026-09-21.
+> Branch: `remediation/full-ship` — working tree **clean**; everything through the
+> Aug 22 About-page fixes and TestFlight build `2026.822.906` is committed and
+> shipped. (The old notes about "lots of uncommitted work on
+> `codex/typed-coding-sessions`" are resolved — that work landed on
+> `remediation/full-ship`, now 61 commits ahead, and most of it is live on
+> TestFlight.)
 
 ---
 
@@ -13,9 +16,11 @@
   team `E4WZK7V29T`, marketing version **2.1**, automatic signing.
 - **TestFlight:** internal group **"PAULM"** (`hasAccessToAllBuilds = true`) — new
   builds auto-attach; the tester just taps **Update** in the TestFlight app.
-- **Latest build pushed:** `2026.531.1848` (build-number scheme is
-  `YYYY.{M}{dd}.{HHMM}` — see runbook). Earlier builds: 1432 (first), 1657, 1727,
-  1834, 1848. Builds 1828 was archived but never uploaded (superseded).
+- **Latest build live:** `2026.822.906` (uploaded 2026-08-22, `processingState:
+  VALID`) — the About-page upload (website/privacy/support → paullm.com, upstream
+  VVTerm identity replaced with our own, GPL-3.0 licensing/attribution pass).
+  Also VALID: `2026.822.749` (2.1 train), `2026.817.8`, `2026.701.848`,
+  `2026.701.829`. Query build state via the API in §3.
 - **Encryption compliance:** iOS `Info.plist` sets `ITSAppUsesNonExemptEncryption =
   false`, so TestFlight does not prompt. ⚠️ Re-evaluate before a public App Store
   release — this is an SSH client (libssh2/OpenSSL); the "no non-exempt encryption"
@@ -23,60 +28,53 @@
 
 ---
 
-## 2. What was fixed/added this session (all in the working tree)
+## 2. What's shipped on `remediation/full-ship` (all committed, all on TestFlight)
+
+Everything from the May/June sessions has been committed and released. Highlights:
 
 ### 2.1 tmux session loading ("Failed to request shell" + blank-screen attach)
-Root cause: a prior change added a heavyweight per-attach login-env harvest
-(`$SHELL -lic env`) and an inline CLI installer wrapped in interactive shells,
-shell-quoted 2–3 layers deep. That made the exec channel request fail (new typed
-sessions) and stalled the env harvest before `tmux attach` (existing sessions → blank).
-
+Root cause was a heavyweight per-attach login-env harvest and a deeply shell-quoted
+inline CLI installer wrapped in interactive shells.
 - `Core/SSH/RemoteTmuxManager.swift` — restored lightweight `shellPathExport()`
-  attach; removed `loginEnvironmentImportScript()` + `refreshTmuxEnvironmentCommand()`
-  from the attach/create path; CLI now launched via `loginShellCommand`.
-- `Core/SSH/RemoteTerminalBootstrap.swift` — `loginShellCommand` now uses a single
-  non-interactive **login** shell (`exec "$SHELL" -lc '<cmd>'`) — login resolves
-  PATH (Homebrew/npm/`~/.local/bin`) without the interactive hang.
+  attach; env-harvest removed from the attach/create path.
+- `Core/SSH/RemoteTerminalBootstrap.swift` — `loginShellCommand` uses a single
+  non-interactive **login** shell (`exec "$SHELL" -lc '<cmd>'`).
 - `Core/SSH/RemoteEnvironmentResolver.swift` — empty command → `.shell` plan.
 
 ### 2.2 Crash: closing the last session aborts (`swift_deallocClassInstance`)
-`deinit` in both iOS/macOS terminal coordinators did `Task { @MainActor [self] in
-cancelShell() }` — capturing `self` strongly resurrects an object mid-dealloc →
-`abort()`. Fixed by doing the cleanup with **captured values, never `self`**.
-- `Features/TerminalSessions/UI/Terminal/SSHTerminalWrapper.swift` (two deinits).
+`deinit` in the terminal coordinators did `Task { @MainActor [self] in … }` —
+capturing `self` mid-dealloc → `abort()`. Fixed with captured values, never `self`.
+- `Features/TerminalSessions/UI/Terminal/SSHTerminalWrapper.swift`
 
 ### 2.3 CLI exit → disconnect when tmux empty → back to server list
-Quitting Claude/Codex/Antigravity used to leave a frozen "stalled" terminal.
-- `Features/TerminalSessions/Application/ConnectionSessionManager.swift` —
-  `handleShellExit` now probes the transport with a trivial remote command:
-  if it answers → the tmux session genuinely ended (empty) → `closeSession`; if not
-  → a network drop → keep the tab for reconnect. Closing the last session empties
-  `sessions`, and existing nav (`iOSContentView` `onChange(sessions)`) returns to the
-  server list.
+`ConnectionSessionManager.handleShellExit` probes the transport: answers → session
+genuinely ended → `closeSession`; dead → network drop → keep tab for reconnect.
 
 ### 2.4 Tailscale detect + prompt (when no servers configured)
-Lightweight, on-device, no auth (can't enumerate a tailnet from a sandboxed app).
-- `Core/Network/TailscaleNetworkDetector.swift` (new) — `isOnTailnet()` checks
-  interfaces for `100.64.0.0/10` or `fd7a:115c:a1e0::/48`.
-- `Core/UI/EmptyStateViews.swift` — "Add Tailscale Host" button.
-- `Features/LocalDiscovery/Domain/DiscoveredSSHHost.swift` — `ServerFormPrefill`
-  gained `connectionMode`; `ServerFormSheet` honors it (opens in Tailscale mode).
-- `App/iOS/iOSContentView.swift` — detects tailnet `onAppear`, shows the button.
+`Core/Network/TailscaleNetworkDetector.isOnTailnet()` checks interfaces for
+`100.64.0.0/10` / `fd7a:115c:a1e0::/48`; empty state offers "Add Tailscale Host";
+`ServerFormPrefill.connectionMode` opens the form in Tailscale mode.
 
 ### 2.5 "+" picker shows existing sessions (with Loaded badge)
-- `Features/TerminalSessions/UI/NewSession/NewTerminalSessionPicker.swift` —
-  "Existing Sessions" section + `existingSessionRow` + Loaded badge.
-- `App/iOS/iOSContentView.swift` — passes the live remote session list + loaded
-  names + `onAttachExisting` (focus if loaded, else attach); refreshes on open.
-- ⚠️ macOS `ConnectionTabsView.swift:237` still uses the new-options-only picker
-  (defaulted params). Wire it via `TerminalTabManager` if macOS parity is wanted.
+`NewTerminalSessionPicker` has an "Existing Sessions" section; tapping a loaded
+session focuses its tab, otherwise attaches. ⚠️ **iOS-only** — macOS
+`ConnectionTabsView.swift` still uses the new-options-only picker (see §5.2).
 
 ### 2.6 Plain "Shell" session kind (non-tmux, no command)
-- `Features/TerminalSessions/Domain/TerminalSessionStartup.swift` — new
-  `TerminalSessionKind.shell` + `TerminalSessionStartup.shell`.
-- `tmuxStartupPlan` (both `ConnectionSessionManager` and `TerminalTabManager`) skips
-  tmux for `.shell`.
-- Picker has a **Shell** row ("Plain SSH shell, no tmux").
+`TerminalSessionKind.shell` skips tmux in `tmuxStartupPlan` on both platforms.
+
+### 2.7 Also shipped since
+- Inline compose box with send modes (local InputBuffer composer docked in the
+  session view).
+- Live tmux-sessions stats card with per-session kill control.
+- Host-key trust flow: typed host-key errors, explicit trust for unknown keys,
+  recovery prompt for changed keys, known-hosts list in Settings with removal,
+  Keychain-backed storage (migrated from UserDefaults).
+- Remote directory picker in the new-session flow; custom session kinds.
+- Adaptive I/O-loop poll backoff (fewer idle wakeups); remote stderr redaction.
+- Web: marketing site rebuilt on Next.js.
+- Docs/compliance: App Store readiness audit, GPL-3.0 licensing + attribution,
+  About page points at paullm.com, corrected credential-sync/CloudKit claims.
 
 ---
 
@@ -89,6 +87,10 @@ out of git):
 - Key ID: `M6262AX69L`   Issuer ID: `69a6de72-3c0c-47e3-e053-5b8c7c11a4d1`
 - Export config: `ExportOptions.plist` (repo root; method `app-store-connect`,
   destination `upload`, automatic signing, team `E4WZK7V29T`).
+
+**Prefer the `ship-testflight` skill** — it handles sandbox/keychain gotchas: disable
+the sandbox for codesign, and unlock + `security set-key-partition-list` the login
+keychain (empty password: `-p ''`) before **each** archive AND **each** export.
 
 ### Bump build number (must be unique & each dotted component < 2^31)
 ```bash
@@ -119,28 +121,25 @@ xcodebuild -exportArchive -archivePath build/paullm-ssh.xcarchive \
 ```
 
 ### Check app / build / group status via the API
-`pip install --user pyjwt cryptography`, then mint an ES256 JWT (iss=Issuer,
-aud=`appstoreconnect-v1`, kid=Key ID) and GET:
+Mint an ES256 JWT (iss=Issuer, aud=`appstoreconnect-v1`, kid=Key ID; needs
+`pyjwt` + `cryptography`) and GET:
 - `/v1/apps?filter[bundleId]=app.paullm.ssh`
-- `/v1/builds?filter[app]=<id>&sort=-uploadedDate` (look for `processingState`)
-- `/v1/apps/<id>/betaGroups`
+- `/v1/builds?filter[app]=6775278799&sort=-uploadedDate` (look for `processingState`)
+- `/v1/apps/6775278799/betaGroups`
 
 ### Quick verify before archiving
 ```bash
 xcodebuild build -project paullm-ssh.xcodeproj -scheme paullm-ssh \
   -configuration Debug -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
-# targeted tests:
-xcodebuild test ... -only-testing:paullm-sshTests/RemoteTmuxManagerParserTests \
-  -only-testing:paullm-sshTests/RemoteTerminalBootstrapTests
 ```
 
 ### Crash symbolication
 `.ips` files: retrieve from the device via Xcode → Window → Devices and
 Simulators → View Device Logs, or `~/Library/Logs/DiagnosticReports/` on Mac.
-dSYM is in the
-archive at `build/paullm-ssh.xcarchive/dSYMs/...`. Match `slice_uuid` to the dSYM
-UUID; `atos -arch arm64 -o <DWARF> -l <imageBase> <imageBase+offset>`. Async funclet
-frames often resolve to nearest-symbol noise — lean on the runtime frames + reasoning.
+dSYM is in the archive at `build/paullm-ssh.xcarchive/dSYMs/...`. Match
+`slice_uuid` to the dSYM UUID; `atos -arch arm64 -o <DWARF> -l <imageBase>
+<imageBase+offset>`. Async funclet frames often resolve to nearest-symbol noise —
+lean on the runtime frames + reasoning.
 
 ---
 
@@ -172,15 +171,17 @@ flowchart TD
 
 1. **AI Toolkit design (waiting on dev specs).** Decide the fate of the now-unused
    inline-install code: `RemoteTerminalBootstrap.configuredCLIStartupScript`,
-   `CLIInstaller`, and `loginEnvironmentImportScript` (still defined + unit-tested but
-   no longer called from the launch path). The Toolkit feature
+   `CLIInstaller`, and `loginEnvironmentImportScript` (still defined + unit-tested
+   but no longer called from the launch path). The Toolkit feature
    (`Features/Toolkit/`) is the intended install/detect/verify path — reconcile the
-   two so there's one install mechanism (UX issue #1 below).
+   two so there's one install mechanism.
 2. **macOS parity:** wire existing-sessions into `ConnectionTabsView` picker via
    `TerminalTabManager`.
-3. **Git:** commit the working tree as atomic commits (see strategy below).
-4. **Dead-code cleanup** once the toolkit decision is made.
-5. **Encryption compliance** review before public release.
+3. **Dead-code cleanup** once the toolkit decision is made.
+4. **Encryption compliance** review before public release.
+5. **Branch hygiene:** `remediation/full-ship` is 61 commits ahead of main and the
+   active ship line — decide whether to merge to `main` / make it the default
+   before starting big new work.
 
 ### UX backlog (identified, not yet addressed)
 - Serial first-paint: tmuxStartupPlan does 4–6 sequential SSH `exec` round-trips
@@ -194,31 +195,15 @@ flowchart TD
 
 ---
 
-## 6. Git / commit strategy
-
-The branch has the WIP **Toolkit** feature plus all the fixes above, intermixed in
-the same files — they were never committed during this session. Suggested atomic
-sequence when ready (per repo `CLAUDE.md` commit rules):
-1. tmux loading fix (`RemoteTmuxManager`, `RemoteTerminalBootstrap`,
-   `RemoteEnvironmentResolver`, tests).
-2. disconnect crash fix (`SSHTerminalWrapper`).
-3. CLI-exit → disconnect (`ConnectionSessionManager`).
-4. Tailscale detect + prompt (Core/Network, Core/UI, LocalDiscovery, Servers/UI, App/iOS).
-5. existing-sessions picker (`NewTerminalSessionPicker`, App/iOS).
-6. Shell session kind (`TerminalSessionStartup`, managers, picker).
-7. release config (`ExportOptions.plist`, build-number bump) — keep separate.
-
-Commit trailer: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
-
----
-
-## 7. Resume checklist (from CLI)
+## 6. Resume checklist (from CLI)
 
 - Read this file + `CLAUDE.md`.
-- `git status` to see the uncommitted surface.
-- To ship: bump build number → archive → export/upload (section 3).
-- Newest crash logs: retrieve from the device (Xcode → Devices → View Device
-  Logs) or `~/Library/Logs/DiagnosticReports/` on Mac; the old
-  `~/ObsidianVault_Final/PROJECTS/paullm-ssh/` path is gone.
-- Confirm the tester is on the latest build (TestFlight → Update); stale-build crash
-  reports (e.g. build 1432) are almost always already-fixed.
+- `git status` — the tree should be clean; confirm you're on `remediation/full-ship`.
+- To ship: **use the `ship-testflight` skill** (or §3 manually: bump build →
+  archive → export/upload).
+- Newest crash logs: retrieve from the device (Xcode → Devices → View Device Logs)
+  or `~/Library/Logs/DiagnosticReports/` on Mac. Vault notes for this project live
+  on **delllap**: `ssh delllap`, `~/ObsidianVault_Final/PROJECTS/paullm-ssh/`
+  (no local `~/vault` on the Mac).
+- Confirm the tester is on the latest build (TestFlight → Update); stale-build
+  crash reports are almost always already-fixed.
