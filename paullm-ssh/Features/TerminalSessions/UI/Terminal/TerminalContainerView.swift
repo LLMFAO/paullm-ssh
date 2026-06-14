@@ -338,8 +338,12 @@ struct TerminalContainerView: View {
             InputBufferInlineComposer(
                 canSend: session.connectionState.isConnected,
                 onVoice: voiceTriggerHandler,
-                onSend: { text in
-                    ConnectionSessionManager.shared.sendText(text, to: session.id)
+                onSend: { text, mode in
+                    #if os(iOS)
+                    ConnectionSessionManager.shared.send(text, mode: mode, to: session.id)
+                    #else
+                    ConnectionSessionManager.shared.sendText(text + "\n", to: session.id)
+                    #endif
                 }
             )
             .transition(.move(edge: .bottom).combined(with: .opacity))

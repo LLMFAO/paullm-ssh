@@ -844,11 +844,11 @@ private struct SSHTerminalRepresentable: UIViewRepresentable {
             && session.connectionState.isConnecting
             && terminalView.shouldRestoreKeyboardFocusOnReconnect
         let shouldKeepExistingKeyboardFocus = terminalView.isFirstResponder && shouldRestoreKeyboardFocus
-        // While the local compose box editor is focused for this session, the
-        // terminal must not reclaim first responder or the user cannot type.
-        let composeEditorFocused = TerminalComposeDraftStore.shared.focusedSessionId == session.id
+        // While the inline compose box is presented, the terminal must not reclaim
+        // first responder or the composer's editor cannot hold keyboard focus.
+        let composerPresented = InputBufferManager.shared.isPresented
         let shouldAutoCaptureKeyboardFocus =
-            !composeEditorFocused
+            !composerPresented
             && (shouldRestoreKeyboardFocus
                 || (session.connectionState.isConnected && terminalView.allowsAutomaticKeyboardFocus))
         terminalView.acceptsTerminalInput = session.connectionState.isConnected

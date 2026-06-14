@@ -9,10 +9,15 @@ import AppKit
 struct InputBufferInlineComposer: View {
     @StateObject private var manager = InputBufferManager.shared
     @FocusState private var isEditorFocused: Bool
+    @AppStorage("terminalComposeSendMode") private var sendModeRaw = TerminalSendMode.enter.rawValue
 
     let canSend: Bool
     var onVoice: (() -> Void)?
-    var onSend: (String) -> Void
+    var onSend: (String, TerminalSendMode) -> Void
+
+    private var sendMode: TerminalSendMode {
+        TerminalSendMode(rawValue: sendModeRaw) ?? .enter
+    }
 
     private var hasDraft: Bool {
         !manager.draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -100,6 +105,8 @@ struct InputBufferInlineComposer: View {
 
             Spacer(minLength: 8)
 
+            sendModeMenu
+
             Button("Clear", role: .destructive) {
                 manager.clearDraft()
                 isEditorFocused = true
@@ -116,9 +123,25 @@ struct InputBufferInlineComposer: View {
         .controlSize(.small)
     }
 
+    private var sendModeMenu: some View {
+        Menu {
+            Picker("Send mode", selection: $sendModeRaw) {
+                ForEach(TerminalSendMode.allCases) { mode in
+                    Label(mode.title, systemImage: mode.systemImage)
+                        .tag(mode.rawValue)
+                }
+            }
+        } label: {
+            Label(sendMode.title, systemImage: sendMode.systemImage)
+                .labelStyle(.iconOnly)
+        }
+        .accessibilityLabel("Send mode: \(sendMode.title)")
+    }
+
     private func send() {
         guard hasDraft, canSend else { return }
-        manager.sendAndClear(via: onSend, withNewline: true)
+        let mode = sendMode
+        manager.sendAndClear(via: { onSend($0, mode) }, withNewline: false)
     }
 
     private func pasteFromClipboard() {

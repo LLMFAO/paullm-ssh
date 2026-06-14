@@ -713,7 +713,6 @@ struct iOSTerminalView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var viewTabConfig = ViewTabConfigurationManager.shared
-    @ObservedObject private var composeDraftStore = TerminalComposeDraftStore.shared
 
     /// Delayed flag to allow tab animation to complete before creating terminal
     @State private var shouldShowTerminalBySession: [UUID: Bool] = [:]
@@ -1499,14 +1498,6 @@ struct iOSTerminalView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if effectiveViewSelection == "terminal" {
-                TerminalComposeBar(
-                    sessionId: session.id,
-                    draftStore: composeDraftStore
-                )
-            }
-        }
         .id(session.id)
         .onAppear {
             prepareTerminal(session: session, viewSelection: effectiveViewSelection, terminalAlreadyExists: terminalAlreadyExists)
