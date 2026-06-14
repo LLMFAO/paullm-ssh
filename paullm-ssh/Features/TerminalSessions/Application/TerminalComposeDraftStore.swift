@@ -17,7 +17,21 @@ final class TerminalComposeDraftStore: ObservableObject {
     /// Unsent draft text keyed by connection session id.
     @Published private var drafts: [UUID: String] = [:]
 
+    /// The session whose compose editor currently holds keyboard focus, if any.
+    /// The terminal wrapper reads this to avoid stealing first responder back
+    /// from the compose box while the user is typing locally.
+    @Published var focusedSessionId: UUID?
+
     init() {}
+
+    /// Mark (or clear) the compose editor focus for a session.
+    func setEditorFocused(_ focused: Bool, for sessionId: UUID) {
+        if focused {
+            focusedSessionId = sessionId
+        } else if focusedSessionId == sessionId {
+            focusedSessionId = nil
+        }
+    }
 
     func draft(for sessionId: UUID) -> String {
         drafts[sessionId] ?? ""

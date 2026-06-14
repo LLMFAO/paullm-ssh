@@ -44,6 +44,12 @@ struct TerminalComposeBar: View {
             }
         }
         .animation(.easeInOut(duration: 0.18), value: isCollapsed)
+        .onChange(of: isEditorFocused) { focused in
+            draftStore.setEditorFocused(focused, for: sessionId)
+        }
+        .onDisappear {
+            draftStore.setEditorFocused(false, for: sessionId)
+        }
     }
 
     // MARK: - Collapsed
