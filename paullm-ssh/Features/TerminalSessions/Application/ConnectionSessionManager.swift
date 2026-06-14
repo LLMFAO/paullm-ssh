@@ -948,6 +948,28 @@ final class ConnectionSessionManager: ObservableObject {
         terminal.sendText(text)
     }
 
+#if os(iOS)
+    /// Deliver drafted compose-box text to a session using the chosen send mode.
+    ///
+    /// Returns whether a terminal was available to receive the text.
+    @discardableResult
+    func send(_ text: String, mode: TerminalSendMode, to sessionId: UUID) -> Bool {
+        guard !text.isEmpty, let terminal = terminalViews[sessionId] else { return false }
+        switch mode {
+        case .raw:
+            terminal.sendText(text)
+        case .enter:
+            terminal.sendText(text)
+            terminal.sendReturn()
+        case .pasteSafe:
+            terminal.pasteTextBracketed(text, pressReturnAfter: false)
+        case .agent:
+            terminal.pasteTextBracketed(text, pressReturnAfter: true)
+        }
+        return true
+    }
+#endif
+
     // MARK: - Reconnection
 
     func reconnect(session: ConnectionSession) async throws {

@@ -1900,6 +1900,36 @@ class GhosttyTerminalView: UIView {
         requestRender()
     }
 
+    /// Send a Return key press (used by the compose box "Enter"/"Agent" send modes).
+    func sendReturn() {
+        sendKeyPress(.enter)
+    }
+
+    /// Paste arbitrary text through Ghostty's bracketed-paste-aware paste path so
+    /// multiline/long text is not interpreted as a series of executed commands.
+    ///
+    /// This reuses the existing `paste_from_clipboard` terminal handling rather than
+    /// inventing a separate transport. The system clipboard is briefly borrowed and
+    /// then restored so the user's clipboard contents are preserved.
+    func pasteTextBracketed(_ text: String, pressReturnAfter: Bool) {
+        guard acceptsTerminalInput, surface != nil, !text.isEmpty else { return }
+
+        let previousClipboard = Clipboard.readString()
+        Clipboard.copy(text)
+        _ = surface?.perform(action: "paste_from_clipboard")
+        if pressReturnAfter {
+            sendKeyPress(.enter)
+        }
+        requestRender()
+
+        // Restore the user's clipboard once the synchronous paste read has completed.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            if let previousClipboard {
+                Clipboard.copy(previousClipboard)
+            }
+        }
+    }
+
     private func sendTerminalInputText(_ text: String) {
         guard acceptsTerminalInput else { return }
 
