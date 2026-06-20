@@ -2,12 +2,13 @@ import SwiftUI
 
 struct InputBufferSheet: View {
     @StateObject private var manager = InputBufferManager.shared
+    @FocusState private var isEditorFocused: Bool
     var onSend: (String) -> Void
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                InputBufferTextView(text: $manager.draftText, onCmdReturn: {
+                InputBufferTextView(text: $manager.draftText, focused: $isEditorFocused, onCmdReturn: {
                     manager.sendAndClear(via: onSend, withNewline: true)
                 })
                 .padding()

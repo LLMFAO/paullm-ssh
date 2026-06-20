@@ -24,21 +24,20 @@ struct InputBufferInlineComposer: View {
     }
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             // Start as a single line and grow with the draft so the composer stays
             // out of the way until there's something to compose.
-            InputBufferTextView(text: $manager.draftText, onCmdReturn: send)
-                .focused($isEditorFocused)
-                .frame(minHeight: 34, maxHeight: 120)
+            InputBufferTextView(text: $manager.draftText, focused: $isEditorFocused, onCmdReturn: send)
+                .frame(minHeight: 30, maxHeight: 110)
                 .padding(.horizontal, 8)
-                .padding(.vertical, 6)
+                .padding(.vertical, 4)
                 .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             actionRow
         }
         .padding(.horizontal, 12)
-        .padding(.top, 8)
-        .padding(.bottom, 8)
+        .padding(.top, 6)
+        .padding(.bottom, 4)
         .background(.ultraThinMaterial)
         .overlay(alignment: .top) {
             Divider()
