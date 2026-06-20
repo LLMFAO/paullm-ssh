@@ -24,19 +24,20 @@ struct InputBufferInlineComposer: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            header
-
+        VStack(spacing: 6) {
+            // Start as a single line and grow with the draft so the composer stays
+            // out of the way until there's something to compose.
             InputBufferTextView(text: $manager.draftText, onCmdReturn: send)
                 .focused($isEditorFocused)
-                .frame(minHeight: 72, maxHeight: 150)
-                .padding(8)
+                .frame(minHeight: 34, maxHeight: 120)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 6)
                 .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
 
             actionRow
         }
         .padding(.horizontal, 12)
-        .padding(.top, 10)
+        .padding(.top, 8)
         .padding(.bottom, 8)
         .background(.ultraThinMaterial)
         .overlay(alignment: .top) {
@@ -47,31 +48,24 @@ struct InputBufferInlineComposer: View {
         }
     }
 
-    private var header: some View {
-        HStack(spacing: 8) {
-            Label("Compose", systemImage: "text.bubble")
-                .font(.subheadline.weight(.semibold))
-
-            Spacer(minLength: 8)
-
-            Text("\(manager.draftText.count)")
-                .font(.caption2.monospacedDigit())
-                .foregroundStyle(.secondary)
-
-            Button {
-                withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
-                    manager.isPresented = false
-                }
-            } label: {
-                Image(systemName: "xmark")
+    private var closeButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.86)) {
+                manager.isPresented = false
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Close composer")
+        } label: {
+            Image(systemName: "chevron.down")
         }
+        .accessibilityLabel("Close composer")
     }
 
     private var actionRow: some View {
+        // Pin the primary controls (mic, send mode, Send) so they stay visible on
+        // narrow screens; let the secondary actions scroll horizontally instead of
+        // pushing Send off the trailing edge.
         HStack(spacing: 10) {
+            closeButton
+
             if let onVoice {
                 Button(action: onVoice) {
                     Image(systemName: "mic.fill")
@@ -79,39 +73,42 @@ struct InputBufferInlineComposer: View {
                 .accessibilityLabel("Dictate to composer")
             }
 
-            Button(action: pasteFromClipboard) {
-                Image(systemName: "doc.on.clipboard")
-            }
-            .accessibilityLabel("Paste into composer")
-
-            Menu {
-                ForEach(Self.snippets) { snippet in
-                    Button(snippet.title) {
-                        appendSnippet(snippet.body)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    Button(action: pasteFromClipboard) {
+                        Image(systemName: "doc.on.clipboard")
                     }
+                    .accessibilityLabel("Paste into composer")
+
+                    Menu {
+                        ForEach(Self.snippets) { snippet in
+                            Button(snippet.title) {
+                                appendSnippet(snippet.body)
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "shippingbox")
+                    }
+                    .accessibilityLabel("Open toolbox snippets")
+
+                    Button {
+                        manager.appendText("\n")
+                        isEditorFocused = true
+                    } label: {
+                        Image(systemName: "return")
+                    }
+                    .accessibilityLabel("Insert newline")
+
+                    Button("Clear", role: .destructive) {
+                        manager.clearDraft()
+                        isEditorFocused = true
+                    }
+                    .disabled(manager.draftText.isEmpty)
                 }
-            } label: {
-                Image(systemName: "shippingbox")
+                .padding(.trailing, 4)
             }
-            .accessibilityLabel("Open toolbox snippets")
-
-            Button {
-                manager.appendText("\n")
-                isEditorFocused = true
-            } label: {
-                Image(systemName: "return")
-            }
-            .accessibilityLabel("Insert newline")
-
-            Spacer(minLength: 8)
 
             sendModeMenu
-
-            Button("Clear", role: .destructive) {
-                manager.clearDraft()
-                isEditorFocused = true
-            }
-            .disabled(manager.draftText.isEmpty)
 
             Button("Send") {
                 send()

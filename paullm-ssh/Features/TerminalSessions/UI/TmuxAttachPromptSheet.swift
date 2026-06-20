@@ -2,12 +2,27 @@ import SwiftUI
 
 struct TmuxAttachPromptSheet: View {
     let prompt: TmuxAttachPrompt
-    let onConfirm: (TmuxAttachSelection) -> Void
+    /// Confirms the user's choice. The optional path is the start directory chosen
+    /// for a newly created session (`.createManaged`); it is `nil` otherwise.
+    let onConfirm: (TmuxAttachSelection, String?) -> Void
+    /// Resolves the initial directory to browse from (e.g. $HOME). When both this
+    /// and `loadDirectories` are provided, a "Start in" chooser is shown for new
+    /// sessions.
+    var resolveStartPath: (() async -> String)? = nil
+    /// Lists folders at a path for the directory chooser.
+    var loadDirectories: ((String) async throws -> [RemoteFileEntry])? = nil
 
     @Environment(\.dismiss) private var dismiss
 
+    @State private var selectedWorkingDirectory: String?
+    @State private var showingDirectoryPicker = false
+
     private var hasSessions: Bool {
         !prompt.existingSessions.isEmpty
+    }
+
+    private var canChooseDirectory: Bool {
+        resolveStartPath != nil && loadDirectories != nil
     }
 
 
@@ -26,6 +41,9 @@ struct TmuxAttachPromptSheet: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .interactiveDismissDisabled()
+            .sheet(isPresented: $showingDirectoryPicker) {
+                directoryPickerSheet
+            }
         }
         #else
         VStack(spacing: 0) {
@@ -39,6 +57,9 @@ struct TmuxAttachPromptSheet: View {
             actionRow
         }
         .frame(minWidth: 520, minHeight: 500)
+        .sheet(isPresented: $showingDirectoryPicker) {
+            directoryPickerSheet
+        }
         #endif
     }
 
@@ -169,44 +190,55 @@ struct TmuxAttachPromptSheet: View {
 
     private var actionRow: some View {
         #if os(macOS)
-        HStack(spacing: 12) {
-            Button {
-                confirm(.skipTmux)
-            } label: {
-                Label("Skip tmux", systemImage: "arrow.right.circle")
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 38)
-                    .font(.callout.weight(.semibold))
-                    .imageScale(.small)
-                    .foregroundStyle(.secondary)
+        VStack(spacing: 10) {
+            if canChooseDirectory {
+                startInControl
+                    .frame(maxWidth: 460)
             }
-            .buttonStyle(.plain)
-            .frame(maxWidth: 220)
+            HStack(spacing: 12) {
+                Button {
+                    confirm(.skipTmux)
+                } label: {
+                    Label("Skip tmux", systemImage: "arrow.right.circle")
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 38)
+                        .font(.callout.weight(.semibold))
+                        .imageScale(.small)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: 220)
 
-            Button {
-                confirm(.createManaged)
-            } label: {
-                Label("New session", systemImage: "plus.rectangle.on.rectangle")
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 38)
-                    .font(.callout.weight(.semibold))
-                    .imageScale(.small)
-                    .foregroundStyle(.white)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(Color.accentColor)
-                    )
+                Button {
+                    confirm(.createManaged)
+                } label: {
+                    Label("New session", systemImage: "plus.rectangle.on.rectangle")
+                        .frame(maxWidth: .infinity)
+                        .frame(minHeight: 38)
+                        .font(.callout.weight(.semibold))
+                        .imageScale(.small)
+                        .foregroundStyle(.white)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.accentColor)
+                        )
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: 220)
             }
-            .buttonStyle(.plain)
-            .frame(maxWidth: 220)
+            .frame(maxWidth: 460)
         }
-        .frame(maxWidth: 460)
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 20)
         .padding(.top, 8)
         .padding(.bottom, 20)
         #else
         VStack(spacing: 10) {
+            if canChooseDirectory {
+                startInControl
+                Divider()
+            }
+
             Button {
                 confirm(.createManaged)
             } label: {
@@ -285,7 +317,62 @@ struct TmuxAttachPromptSheet: View {
     }
 
     private func confirm(_ selection: TmuxAttachSelection) {
-        onConfirm(selection)
+        let workingDirectory: String?
+        if case .createManaged = selection {
+            workingDirectory = selectedWorkingDirectory
+        } else {
+            workingDirectory = nil
+        }
+        onConfirm(selection, workingDirectory)
         dismiss()
+    }
+
+    @ViewBuilder
+    private var startInControl: some View {
+        if canChooseDirectory {
+            Button {
+                showingDirectoryPicker = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "folder")
+                        .foregroundStyle(Color.accentColor)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Start in")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Text(selectedWorkingDirectory ?? String(localized: "Default (home directory)"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var directoryPickerSheet: some View {
+        if let resolveStartPath, let loadDirectories {
+            RemoteDirectoryPickerSheet(
+                resolveStartPath: {
+                    if let selectedWorkingDirectory { return selectedWorkingDirectory }
+                    return await resolveStartPath()
+                },
+                loadDirectories: loadDirectories,
+                onCancel: { showingDirectoryPicker = false },
+                onChoose: { path in
+                    selectedWorkingDirectory = path
+                    showingDirectoryPicker = false
+                }
+            )
+        }
     }
 }

@@ -1089,7 +1089,6 @@ struct iOSTerminalView: View {
             }
             .sheet(isPresented: $showingNewTerminalSessionPicker) {
                 if let server = selectedServer {
-                    let browseClient = sessionManager.sharedStatsClient(for: server.id)
                     NewTerminalSessionPicker(
                         server: server,
                         existingSessions: remoteTmuxSessionsByServer[server.id] ?? [],
@@ -1110,16 +1109,8 @@ struct iOSTerminalView: View {
                             showingNewTerminalSessionPicker = false
                             showingToolkitEntryDetail = entry
                         },
-                        onResolveStartPath: browseClient.map { client in
-                            { (try? await client.resolveHomeDirectory()) ?? "/" }
-                        },
-                        onLoadDirectories: browseClient.map { client in
-                            { path in
-                                try await client.listDirectory(at: path)
-                                    .filter { $0.type == .directory }
-                                    .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-                            }
-                        }
+                        onResolveStartPath: { await resolveRemoteHome(for: server) },
+                        onLoadDirectories: { try await loadRemoteDirectories(at: $0, for: server) }
                     )
                 }
             }
@@ -1146,10 +1137,20 @@ struct iOSTerminalView: View {
                 }
             }
             .sheet(item: tmuxAttachPromptBinding) { prompt in
+                let promptServer = serverManager.servers.first { $0.id == prompt.serverId }
                 TmuxAttachPromptSheet(
                     prompt: prompt,
-                    onConfirm: { selection in
+                    onConfirm: { selection, workingDirectory in
+                        if let workingDirectory {
+                            sessionManager.setSessionWorkingDirectory(workingDirectory, for: prompt.id)
+                        }
                         sessionManager.resolveTmuxAttachPrompt(sessionId: prompt.id, selection: selection)
+                    },
+                    resolveStartPath: promptServer.map { server in
+                        { await resolveRemoteHome(for: server) }
+                    },
+                    loadDirectories: promptServer.map { server in
+                        { try await loadRemoteDirectories(at: $0, for: server) }
                     }
                 )
             }
@@ -1295,6 +1296,7 @@ struct iOSTerminalView: View {
                 isVisible: true,
                 backgroundColor: Color(UIColor.systemGroupedBackground),
                 sharedClientProvider: { sessionManager.sharedStatsClient(for: server.id) },
+                onAttachTmuxSession: { attachExistingTmuxFromSummary($0, on: server) },
                 statsCollector: ServerStatsCollector()
             )
         }
@@ -1308,6 +1310,7 @@ struct iOSTerminalView: View {
                     isVisible: true,
                     backgroundColor: Color(UIColor.systemGroupedBackground),
                     sharedClientProvider: { sessionManager.sharedStatsClient(for: server.id) },
+                    onAttachTmuxSession: { attachExistingTmuxFromSummary($0, on: server) },
                     statsCollector: ServerStatsCollector()
                 )
                 .zIndex(1)
@@ -1614,8 +1617,42 @@ struct iOSTerminalView: View {
         }
     }
 
+    /// Resolves the remote home directory for the directory chooser. Routes through
+    /// the SFTP adapter (which guarantees a connection, opening its own if no
+    /// terminal/stats client is borrowed) so browsing works from any screen.
+    private func resolveRemoteHome(for server: Server) async -> String {
+        (try? await fileBrowser.remoteFileServiceAdapter.withService(for: server) { service in
+            try await service.resolveHomeDirectory()
+        }) ?? "/"
+    }
+
+    /// Lists subfolders at a path for the directory chooser, via the SFTP adapter.
+    private func loadRemoteDirectories(at path: String, for server: Server) async throws -> [RemoteFileEntry] {
+        try await fileBrowser.remoteFileServiceAdapter.withService(for: server) { service in
+            try await service.listDirectory(at: path, maxEntries: nil)
+                .filter { $0.type == .directory }
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        }
+    }
+
+    /// Attach (or focus) an existing tmux session selected from the host summary's
+    /// tmux card, reusing the same flow as the new-session picker.
+    private func attachExistingTmuxFromSummary(_ remote: RemoteTmuxSession, on server: Server) {
+        let info = TmuxAttachSessionInfo(
+            name: remote.name,
+            attachedClients: max(0, remote.attachedClients),
+            windowCount: max(1, remote.windowCount),
+            currentPath: remote.currentPath,
+            startup: TerminalSessionStartup.displayStartup(forExistingTmuxSessionName: remote.name)
+        )
+        attachOrFocusExistingTmuxSession(info, on: server)
+    }
+
     private func refreshRemoteTmuxSessions() {
-        guard selectedView == "terminal", let server = selectedServer else { return }
+        // Called explicitly when opening the new-session picker, regardless of which
+        // view is showing (terminal or host summary), so the picker lists the same
+        // live tmux sessions the host summary does.
+        guard let server = selectedServer else { return }
         guard !loadingRemoteTmuxSessionServerIds.contains(server.id) else { return }
 
         loadingRemoteTmuxSessionServerIds.insert(server.id)

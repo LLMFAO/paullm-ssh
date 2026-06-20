@@ -245,7 +245,7 @@ struct ConnectionTerminalContainer: View {
             .sheet(item: tmuxAttachPromptBinding) { prompt in
                 TmuxAttachPromptSheet(
                     prompt: prompt,
-                    onConfirm: { selection in
+                    onConfirm: { selection, _ in
                         tabManager.resolveTmuxAttachPrompt(paneId: prompt.id, selection: selection)
                     }
                 )
