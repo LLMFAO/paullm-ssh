@@ -38,6 +38,17 @@ extension HostKeyPrompt.Kind {
 }
 
 extension SSHError {
+    /// True for the typed host-key errors that should drive a fingerprint prompt
+    /// (first contact or changed key) rather than a plain failure.
+    var isHostKeyChallenge: Bool {
+        switch self {
+        case .hostKeyUnknown, .hostKeyMismatch:
+            return true
+        default:
+            return false
+        }
+    }
+
     /// Build a `HostKeyPrompt` from the typed host-key errors thrown by
     /// `SSHClient.verifyHostKey()`. Returns nil for other error cases.
     func hostKeyPrompt(sessionId: UUID, serverId: UUID, serverName: String) -> HostKeyPrompt? {

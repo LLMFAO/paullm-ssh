@@ -30,6 +30,26 @@ final class SSHSFTPAdapter {
         for server: Server,
         operation: @escaping (any RemoteFileService) async throws -> T
     ) async throws -> T {
+        do {
+            return try await runService(for: server, operation: operation)
+        } catch let sshError as SSHError where sshError.isHostKeyChallenge {
+            // The Files/SFTP flow opens its own connection, so first contact with
+            // a host surfaces a host-key challenge. Present the same fingerprint
+            // prompt the terminal uses; on approval, retry once now that trust is
+            // pinned. Otherwise the user could never reach SFTP on a new host.
+            let approved = await ConnectionSessionManager.shared.requestHostKeyApproval(
+                for: sshError,
+                server: server
+            )
+            guard approved else { throw sshError }
+            return try await runService(for: server, operation: operation)
+        }
+    }
+
+    private func runService<T>(
+        for server: Server,
+        operation: @escaping (any RemoteFileService) async throws -> T
+    ) async throws -> T {
         let registration = clientRegistration(for: server)
         let credentials = try KeychainManager.shared.getCredentials(for: server)
 

@@ -54,6 +54,10 @@ final class ConnectionSessionManager: ObservableObject {
     /// root views bind to this and present the matching alert/sheet.
     @Published var hostKeyPrompt: HostKeyPrompt?
 
+    /// Continuations for non-terminal flows (e.g. SFTP/Files) that await the
+    /// user's host-key decision so they can retry the connection on approval.
+    private var hostKeyApprovalContinuations: [UUID: CheckedContinuation<Bool, Never>] = [:]
+
     let tmuxResolver = TmuxAttachResolver()
 
     /// Legacy single server ID for backward compatibility
@@ -1317,6 +1321,28 @@ extension ConnectionSessionManager {
         hostKeyPrompt = prompt
     }
 
+    /// Presents the host-key fingerprint prompt for a non-terminal flow and
+    /// awaits the user's decision. Returns true if approved (trust persisted by
+    /// `approveHostKeyPrompt`). Used by the SFTP/Files path so it can bootstrap
+    /// trust for a host instead of failing with an opaque error.
+    func requestHostKeyApproval(for error: SSHError, server: Server) async -> Bool {
+        guard let prompt = error.hostKeyPrompt(
+            sessionId: UUID(),
+            serverId: server.id,
+            serverName: server.name
+        ) else {
+            return false
+        }
+        return await withCheckedContinuation { continuation in
+            hostKeyApprovalContinuations[prompt.id] = continuation
+            setHostKeyPrompt(prompt)
+        }
+    }
+
+    private func resumeHostKeyApproval(promptId: UUID, approved: Bool) {
+        hostKeyApprovalContinuations.removeValue(forKey: promptId)?.resume(returning: approved)
+    }
+
     /// User accepted an unknown host key. Persist the trust decision and
     /// clear the prompt; the caller is expected to retry the connection.
     func approveHostKeyPrompt(promptId: UUID) {
@@ -1328,6 +1354,7 @@ extension ConnectionSessionManager {
             keyType: prompt.keyType
         )
         hostKeyPrompt = nil
+        resumeHostKeyApproval(promptId: promptId, approved: true)
     }
 
     /// User dismissed a changed-key prompt by removing the stale pin. The
@@ -1337,12 +1364,14 @@ extension ConnectionSessionManager {
         guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
         KnownHostsManager.shared.removeEntry(host: prompt.host, port: prompt.port)
         hostKeyPrompt = nil
+        resumeHostKeyApproval(promptId: promptId, approved: false)
     }
 
     /// User dismissed the prompt without taking action.
     func cancelHostKeyPrompt(promptId: UUID) {
         guard let prompt = hostKeyPrompt, prompt.id == promptId else { return }
         hostKeyPrompt = nil
+        resumeHostKeyApproval(promptId: promptId, approved: false)
     }
 
     func resolveTmuxAttachPrompt(sessionId: UUID, selection: TmuxAttachSelection) {
