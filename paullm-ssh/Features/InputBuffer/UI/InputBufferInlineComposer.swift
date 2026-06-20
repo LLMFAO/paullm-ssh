@@ -44,7 +44,14 @@ struct InputBufferInlineComposer: View {
             Divider()
         }
         .onAppear {
-            isEditorFocused = true
+            // Focusing synchronously in onAppear is unreliable: the editor isn't in
+            // the responder hierarchy yet, so the keyboard/focus (and the resulting
+            // layout of this action row) doesn't engage until some later event — which
+            // is why the controls stayed hidden until you tapped the terminal. Defer a
+            // beat so focus reliably takes and the bar lays out immediately.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                isEditorFocused = true
+            }
         }
     }
 
@@ -129,8 +136,14 @@ struct InputBufferInlineComposer: View {
                 }
             }
         } label: {
-            Label(sendMode.title, systemImage: sendMode.systemImage)
-                .labelStyle(.iconOnly)
+            // Text label (not the mode icon) so this reads as a send-mode
+            // selector rather than a second "return" key next to the newline
+            // button.
+            HStack(spacing: 3) {
+                Text(sendMode.title)
+                Image(systemName: "chevron.down")
+                    .font(.caption2)
+            }
         }
         .accessibilityLabel("Send mode: \(sendMode.title)")
     }
