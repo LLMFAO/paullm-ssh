@@ -186,6 +186,13 @@ final class TmuxAttachResolver {
             }
         }
 
+        // Explicit "attach to this exact session" (from the picker or host summary).
+        // Attach to the named session as-is — never create or auto-rename it, and
+        // never re-run a startup command (the program is already running inside).
+        if let startup, let existingName = startup.attachExistingSessionName {
+            return .attachExisting(sessionName: existingName)
+        }
+
         if let startup, startup.kind != .tmux {
             let sessions = await RemoteTmuxManager.shared.listSessions(using: client)
             let existingNames = Set(sessions.map { $0.name })

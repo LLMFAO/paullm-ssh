@@ -45,6 +45,23 @@ actor RemoteTmuxManager {
         return output?.contains(okMarker) == true
     }
 
+    /// Returns true if a tmux session with the given name currently exists on the
+    /// host. Used to tell "the user detached from a still-running session" apart
+    /// from "the session ended", which a transport-liveness probe alone cannot do
+    /// (a detach leaves the SSH transport alive just like a clean exit).
+    func hasSession(named sessionName: String, using client: SSHClient) async -> Bool {
+        let marker = "__PAULLM_TMUX_HAS__"
+        let exact = RemoteTerminalBootstrap.shellQuoted("=\(sessionName)")
+        let plain = RemoteTerminalBootstrap.shellQuoted(sessionName)
+        let tmux = tmuxCommand(includeUTF8: false, includeConfig: false)
+        let body = "\(RemoteTerminalBootstrap.shellPathExport()); "
+            + "if \(tmux) has-session -t \(exact) 2>/dev/null || \(tmux) has-session -t \(plain) 2>/dev/null; then "
+            + "printf '%s' \(RemoteTerminalBootstrap.shellQuoted(marker)); fi"
+        let command = "sh -lc \(RemoteTerminalBootstrap.shellQuoted(body))"
+        let output = try? await client.execute(command, timeout: availabilityTimeout)
+        return output?.contains(marker) == true
+    }
+
     func listSessions(using client: SSHClient) async -> [RemoteTmuxSession] {
         let tmux = tmuxCommand(includeUTF8: false, includeConfig: false)
         // Try richer format first, then fall back for older tmux versions.

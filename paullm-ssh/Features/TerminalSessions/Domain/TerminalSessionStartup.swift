@@ -80,6 +80,10 @@ struct TerminalSessionStartup: Codable, Equatable, Hashable, Sendable {
     /// Optional remote directory to start the session in (tmux `-c` or a `cd`).
     /// Optional so older persisted snapshots decode cleanly.
     var workingDirectory: String? = nil
+    /// When set, this session must attach to the named tmux session exactly,
+    /// instead of creating a new (possibly auto-renamed) one. Drives the attach
+    /// path for "open an existing session" from the picker and host summary.
+    var attachExistingSessionName: String? = nil
 
     static var tmux: TerminalSessionStartup {
         TerminalSessionStartup(
@@ -131,7 +135,8 @@ struct TerminalSessionStartup: Codable, Equatable, Hashable, Sendable {
                 iconSystemName: kind.iconSystemName,
                 command: nil,
                 bypassPermissions: false,
-                sessionNamePrefix: kind.rawValue
+                sessionNamePrefix: kind.rawValue,
+                attachExistingSessionName: sessionName
             )
         }
 
@@ -142,7 +147,8 @@ struct TerminalSessionStartup: Codable, Equatable, Hashable, Sendable {
             iconSystemName: TerminalSessionKind.tmux.iconSystemName,
             command: nil,
             bypassPermissions: false,
-            sessionNamePrefix: nil
+            sessionNamePrefix: nil,
+            attachExistingSessionName: sessionName
         )
     }
 

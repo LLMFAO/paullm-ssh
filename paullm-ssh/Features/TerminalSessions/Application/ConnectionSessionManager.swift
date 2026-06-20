@@ -222,7 +222,7 @@ final class ConnectionSessionManager: ObservableObject {
     /// remote exec fails. Used by the existing-sessions picker
     /// (CONT_PLAN 2.5).
     func remoteTmuxSessions(for server: Server) async -> [TmuxAttachSessionInfo] {
-        guard let client = sshClient(for: server.id) else { return [] }
+        guard let client = tmuxCapableClient(for: server.id) else { return [] }
         guard let remote = try? await RemoteTmuxManager.shared.listSessions(using: client) else {
             return []
         }
@@ -308,7 +308,9 @@ final class ConnectionSessionManager: ObservableObject {
             title: startup?.displayTitle ?? server.name,
             connectionState: .connecting,  // Will connect when terminal view appears
             tmuxStatus: tmuxResolver.isTmuxEnabled(for: server.id) ? .unknown : .off,
-            workingDirectory: sourceWorkingDirectory,
+            // An explicit start directory chosen for this session (e.g. via the
+            // new-session picker) wins over the inherited/source path.
+            workingDirectory: startup?.workingDirectory ?? sourceWorkingDirectory,
             startup: startup
         )
 
@@ -572,12 +574,35 @@ final class ConnectionSessionManager: ObservableObject {
             return
         }
 
+        // For a tmux-backed session, a shell-stream end most often means the user
+        // (or the app) *detached* from a session that is still alive on the host —
+        // not that the session ended. A transport-liveness probe alone can't tell
+        // those apart (a detach leaves SSH alive just like a clean exit), and
+        // misclassifying a detach as an exit makes closeSession() → killTmuxIfNeeded()
+        // destroy the live session, so the next connect lands in a brand-new shell.
+        // Capture the session name so we can probe the session itself off the main actor.
+        let tmuxSessionName: String? = {
+            guard let status = tmuxStatus(for: sessionId),
+                  status == .foreground || status == .background else { return nil }
+            return tmuxResolver.sessionName(for: sessionId)
+        }()
+
         Task { [weak self] in
             let transportAlive = ((try? await client.execute("true", timeout: .seconds(4))) != nil)
+
+            var tmuxSessionAlive = false
+            if transportAlive, let tmuxSessionName {
+                tmuxSessionAlive = await RemoteTmuxManager.shared.hasSession(named: tmuxSessionName, using: client)
+            }
+
             await MainActor.run {
                 guard let self else { return }
-                if transportAlive, let session = self.sessionWithID(sessionId) {
-                    // Clean end (tmux emptied / CLI exited): close the session.
+                if tmuxSessionAlive {
+                    // Detached from a still-running tmux session: keep the tab so the
+                    // user can reattach instead of killing the live session.
+                    self.keepSessionForReconnect(sessionId)
+                } else if transportAlive, let session = self.sessionWithID(sessionId) {
+                    // Clean end (tmux emptied / CLI exited / no tmux): close the session.
                     self.closeSession(session)
                 } else {
                     // Connection dropped: keep the tab so the user can reconnect.
@@ -793,6 +818,27 @@ final class ConnectionSessionManager: ObservableObject {
             return nil
         }
         return sshClient(for: serverId)
+    }
+
+    /// Connections opened by the stats collector when no terminal session exists.
+    /// Tracking them lets tmux listing/attach reuse the same live connection, so the
+    /// host summary and the new-session picker show the same sessions.
+    private var statsOwnedClients: [UUID: SSHClient] = [:]
+
+    func registerStatsClient(_ client: SSHClient, for serverId: UUID) {
+        statsOwnedClients[serverId] = client
+    }
+
+    func unregisterStatsClient(_ client: SSHClient, for serverId: UUID) {
+        if statsOwnedClients[serverId] === client {
+            statsOwnedClients.removeValue(forKey: serverId)
+        }
+    }
+
+    /// A client usable for tmux listing/attach: the terminal client if connected,
+    /// otherwise a stats-owned connection.
+    func tmuxCapableClient(for serverId: UUID) -> SSHClient? {
+        sshClient(for: serverId) ?? statsOwnedClients[serverId]
     }
 
     private func selectedTransport(for serverId: UUID) -> ShellTransport {
@@ -1188,6 +1234,16 @@ extension ConnectionSessionManager {
 
     func workingDirectory(for sessionId: UUID) -> String? {
         storedWorkingDirectory(for: sessionId)
+    }
+
+    /// Sets the start directory for a session that is about to attach. Used by the
+    /// tmux-attach prompt so a freshly created managed session starts in the folder
+    /// the user picked. `resolveTmuxWorkingDirectory` prefers a live session's
+    /// current path, so this only takes effect for new sessions (which have none).
+    func setSessionWorkingDirectory(_ path: String, for sessionId: UUID) {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        setStoredWorkingDirectory(trimmed, for: sessionId)
     }
 
     func shouldApplyWorkingDirectory(for sessionId: UUID) -> Bool {
