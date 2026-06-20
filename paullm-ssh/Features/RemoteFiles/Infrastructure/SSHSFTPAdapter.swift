@@ -18,10 +18,13 @@ final class SSHSFTPAdapter {
     private let borrowedClientProvider: BorrowedClientProvider
 
     init(
-        borrowedClientProvider: @escaping BorrowedClientProvider = { serverId in
-            ConnectionSessionManager.shared.sharedStatsClient(for: serverId)
-                ?? TerminalTabManager.shared.sharedStatsClient(for: serverId)
-        }
+        // SFTP uses a dedicated connection rather than borrowing the live terminal
+        // session. Borrowing shares the terminal's libssh2 session, whose I/O loop
+        // blocks the actor in long (up to 250ms) idle poll() waits — that starves
+        // concurrent SFTP reads and leaves the file browser stuck on "loading
+        // files". A dedicated connection has no competing shell I/O loop, so SFTP
+        // stays responsive. Tests can still inject a borrowed client.
+        borrowedClientProvider: @escaping BorrowedClientProvider = { _ in nil }
     ) {
         self.borrowedClientProvider = borrowedClientProvider
     }
