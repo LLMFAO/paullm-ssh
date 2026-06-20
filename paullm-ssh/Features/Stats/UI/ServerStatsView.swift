@@ -49,6 +49,7 @@ struct ServerStatsView: View {
     let isVisible: Bool
     let backgroundColor: Color
     var sharedClientProvider: () -> SSHClient? = { nil }
+    var onAttachTmuxSession: (RemoteTmuxSession) -> Void = { _ in }
 
     @StateObject private var statsCollector: ServerStatsCollector
 
@@ -57,12 +58,14 @@ struct ServerStatsView: View {
         isVisible: Bool,
         backgroundColor: Color,
         sharedClientProvider: @escaping () -> SSHClient? = { nil },
+        onAttachTmuxSession: @escaping (RemoteTmuxSession) -> Void = { _ in },
         statsCollector: ServerStatsCollector
     ) {
         self.server = server
         self.isVisible = isVisible
         self.backgroundColor = backgroundColor
         self.sharedClientProvider = sharedClientProvider
+        self.onAttachTmuxSession = onAttachTmuxSession
         _statsCollector = StateObject(wrappedValue: statsCollector)
     }
 
@@ -76,6 +79,17 @@ struct ServerStatsView: View {
                         serverName: server.name,
                         osInfo: statsCollector.stats.osInfo,
                         surfaceStyle: cardSurfaceStyle
+                    )
+
+                    // Live tmux sessions on the host, pinned directly under the
+                    // name/OS info. Reuses the stats connection so it's checked
+                    // automatically whenever the summary is connected.
+                    TmuxSessionsCard(
+                        server: server,
+                        isVisible: isVisible,
+                        surfaceStyle: cardSurfaceStyle,
+                        clientProvider: { sharedClientProvider() ?? statsCollector.activeClient },
+                        onAttach: onAttachTmuxSession
                     )
 
                     // CPU Card
@@ -116,14 +130,6 @@ struct ServerStatsView: View {
 
                     // Top Processes - always show, empty state handled inside
                     ProcessesCard(processes: statsCollector.stats.topProcesses, surfaceStyle: cardSurfaceStyle)
-
-                    // Live tmux sessions on the host, with a per-session kill control.
-                    TmuxSessionsCard(
-                        server: server,
-                        isVisible: isVisible,
-                        surfaceStyle: cardSurfaceStyle,
-                        clientProvider: sharedClientProvider
-                    )
                 }
                 .padding()
             }
@@ -183,6 +189,7 @@ private struct TmuxSessionsCard: View {
     let isVisible: Bool
     let surfaceStyle: StatsCardSurfaceStyle
     let clientProvider: () -> SSHClient?
+    var onAttach: (RemoteTmuxSession) -> Void = { _ in }
 
     @State private var sessions: [RemoteTmuxSession] = []
     @State private var isLoading = false
@@ -217,7 +224,7 @@ private struct TmuxSessionsCard: View {
             }
 
             if !hasClient {
-                Text("Connect to this server to view and manage its tmux sessions.")
+                Text("Connecting to host…")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else if sessions.isEmpty {
@@ -258,17 +265,36 @@ private struct TmuxSessionsCard: View {
 
     private func sessionRow(_ session: RemoteTmuxSession) -> some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(session.name)
-                    .font(.subheadline)
-                Text(detail(for: session))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            Button {
+                onAttach(session)
+            } label: {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(session.name)
+                        .font(.subheadline)
+                    Text(detail(for: session))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            Spacer(minLength: 8)
+            .buttonStyle(.plain)
+            .accessibilityLabel("Attach to \(session.name)")
+            .accessibilityHint("Opens a terminal attached to this session")
+
             if killingNames.contains(session.name) {
                 ProgressView()
             } else {
+                Button {
+                    onAttach(session)
+                } label: {
+                    Image(systemName: "arrow.right.circle.fill")
+                        .foregroundStyle(Color.accentColor)
+                        .imageScale(.large)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Attach to \(session.name)")
+
                 Button(role: .destructive) {
                     pendingKill = session
                 } label: {

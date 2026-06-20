@@ -12,6 +12,10 @@ final class ServerStatsCollector: ObservableObject {
     @Published var memoryHistory: [StatsPoint] = []
     @Published var isCollecting = false
     @Published var connectionError: String?
+    /// True once the stats SSH connection is established. Published so views can
+    /// reuse the same live connection (e.g. to list tmux sessions) the moment it
+    /// is ready.
+    @Published private(set) var isConnected = false
 
     private var collectTask: Task<Void, Never>?
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "paullm-ssh", category: "Stats")
@@ -19,6 +23,11 @@ final class ServerStatsCollector: ObservableObject {
     // Own SSH client for stats collection
     private var sshClient: SSHClient?
     private var ownsClient = false
+    private var collectingServerId: UUID?
+
+    /// The live stats connection, if connected. Reused for tmux listing so the
+    /// host summary doesn't need a separate terminal connection.
+    var activeClient: SSHClient? { isConnected ? sshClient : nil }
 
     // Platform detection and collector
     private var remotePlatform: RemotePlatform = .unknown
@@ -31,6 +40,7 @@ final class ServerStatsCollector: ObservableObject {
         guard !isCollecting else { return }
         isCollecting = true
         connectionError = nil
+        collectingServerId = server.id
         resetCollectionState()
 
         // Use shared client if available, otherwise create one
@@ -67,6 +77,12 @@ final class ServerStatsCollector: ObservableObject {
                 ) { connectedClient in
                     await MainActor.run {
                         self.connectionError = nil
+                        self.isConnected = true
+                        // Share a stats-owned connection so tmux listing/attach
+                        // (host summary + new-session picker) can reuse it.
+                        if ownsClient {
+                            ConnectionSessionManager.shared.registerStatsClient(connectedClient, for: server.id)
+                        }
                     }
 
                     while !Task.isCancelled {
@@ -156,8 +172,12 @@ final class ServerStatsCollector: ObservableObject {
     }
 
     private func clearConnectionState() {
+        if ownsClient, let client = sshClient, let serverId = collectingServerId {
+            ConnectionSessionManager.shared.unregisterStatsClient(client, for: serverId)
+        }
         sshClient = nil
         ownsClient = false
+        isConnected = false
     }
 
     private func finishCollection(withError error: String? = nil) {
