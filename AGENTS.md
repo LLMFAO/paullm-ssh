@@ -152,7 +152,7 @@ When doing architectural refactors:
 - prioritize structural splits and ownership cleanup over behavior changes
 - preserve existing UI, UX, and visual behavior unless the user explicitly asks for a change
 - do not bundle redesigns or new features into a refactor
-- keep platform parity intact unless a platform-specific bug is being fixed
+- **iOS is the primary platform.** Do not invest in macOS-only features or macOS parity work unless explicitly requested. macOS must keep compiling (shared SwiftUI code serves both), but new UX work targets iOS only.
 - if a behavior change is necessary for correctness or safety, keep it minimal and isolated
 
 Safe refactor expectation:
@@ -273,3 +273,26 @@ struct ConnectionSession: Identifiable {
 4. **Credential sync**: server metadata syncs via CloudKit; credentials (passwords, SSH keys, passphrases, Cloudflare tokens) sync via iCloud Keychain when sync is enabled (see KeychainStore.set's iCloudSync parameter). Nothing credential-shaped goes through CloudKit.
 5. **iOS keyboard toolbar** provides Esc, Tab, Ctrl, arrows, function keys
 6. **Voice-to-command** uses MLX Whisper/Parakeet on-device or Apple Speech fallback
+
+## Shipping to TestFlight
+
+Use the **`ship-testflight` skill** for the full flow. Key facts:
+
+- **Run codesign steps with the sandbox disabled** — otherwise `errSecInternalComponent`.
+- **Unlock + key-partition-list two keychains before each archive AND each export**
+  (they re-lock between processes):
+  - `~/Library/Keychains/login.keychain-db` — **empty password** (not the account password).
+  - distribution cert is in `~/ColoradoDriversQuiz/build/signing/co-permit-quiz.keychain-db`
+    (password file beside it). Export re-signs with this cert, so authorize it there too.
+- Bump `CURRENT_PROJECT_VERSION` to `2026.$(date +%-m%d).$(date +%H%M)` (unique; each
+  dotted part < 2^31). Then `xcodebuild archive` → `xcodebuild -exportArchive`
+  (`ExportOptions.plist`, method app-store-connect/upload) with the App Store Connect
+  API key at `~/.appstoreconnect/private_keys/AuthKey_M6262AX69L.p8`
+  (Key ID `M6262AX69L`, Issuer `69a6de72-3c0c-47e3-e053-5b8c7c11a4d1`).
+- Success markers: `** ARCHIVE SUCCEEDED **`, `Upload succeeded.` / `** EXPORT SUCCEEDED **`.
+- **Validate code with a *device* build** (`-destination 'generic/platform=iOS'
+  CODE_SIGNING_ALLOWED=NO`) — the simulator lacks libssh2/libghostty slices, so a
+  simulator build fails at link with undefined `_libssh2_*` / `_ghostty_*` symbols
+  (not a code error). Commit/push only when asked.
+- Full runbook with exact commands: `docs/CONTINUATION_PLAN.md §3` and
+  `docs/SESSION_FIXES_2026-06-21.md`.
