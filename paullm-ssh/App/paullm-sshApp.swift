@@ -136,10 +136,13 @@ struct paullm_sshApp: App {
 
 private extension paullm_sshApp {
     static func makeRemoteFileBrowserStore() -> RemoteFileBrowserStore {
-        let adapter = SSHSFTPAdapter(borrowedClientProvider: { serverId in
-            ConnectionSessionManager.shared.sharedStatsClient(for: serverId)
-                ?? TerminalTabManager.shared.sharedStatsClient(for: serverId)
-        })
+        // Use a dedicated SFTP connection instead of borrowing the live terminal
+        // session. Borrowing shares the terminal's libssh2 session, whose I/O loop
+        // blocks the actor in long (up to 250ms) idle poll() waits and starves
+        // concurrent SFTP reads — which left the file browser and the "Start in"
+        // directory chooser stuck on "loading files". A dedicated connection has
+        // no competing shell I/O loop, so listing stays responsive.
+        let adapter = SSHSFTPAdapter(borrowedClientProvider: { _ in nil })
 
         return RemoteFileBrowserStore(
             remoteFileServiceAdapter: adapter,
