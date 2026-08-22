@@ -303,16 +303,13 @@ struct TerminalSessionStartupTests {
         )
 
         #expect(command.contains("opencode"))
-        #expect(command.contains("$SHELL"))
-        // The CLI runs through a non-interactive login shell (`-lc`), never an
-        // interactive one (`-ic`): interactive startup could stall or echo garbage
-        // into the PTY.
-        #expect(command.contains("-lc"))
+        #expect(command.contains("PAULLM_SH=\"${SHELL:-}\""))
+        // The CLI runs through the resolved remote login shell. Interactive login
+        // mode loads the user's tool configuration while `-c` executes the command.
+        #expect(command.contains("exec \"$PAULLM_SH\" -ilc"))
         #expect(!command.contains("-ic"))
-        // The CLI is not `exec`'d: after it exits (finished, crashed, or "command not
-        // found") we drop into an interactive login shell so the tmux session stays
-        // alive. It ends only on Ctrl-D / disconnect, not when the CLI exits.
-        #expect(command.contains("exec \"$SHELL\" -l"))
-        #expect(command.contains("exec sh -l"))
+        // Fast startup failures fall back to the resolved interactive login shell so
+        // the error remains visible instead of immediately closing the tmux session.
+        #expect(command.contains("exec \"${PAULLM_SH:-/bin/sh}\" -il"))
     }
 }

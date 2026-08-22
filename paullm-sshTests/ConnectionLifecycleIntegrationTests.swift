@@ -314,6 +314,11 @@ struct ConnectionLifecycleIntegrationTests {
 
             manager.handleShellExit(for: session.id)
 
+            // Shell-exit classification probes transport liveness asynchronously.
+            for _ in 0..<50 where manager.sessions.first?.connectionState != .disconnected {
+                try? await Task.sleep(nanoseconds: 10_000_000)
+            }
+
             #expect(manager.sessions.first?.connectionState == .disconnected)
             #expect(manager.consumeTerminalReconnectReset(for: session.id))
             #expect(!manager.consumeTerminalReconnectReset(for: session.id))
