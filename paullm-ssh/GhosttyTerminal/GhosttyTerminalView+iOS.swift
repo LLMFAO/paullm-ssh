@@ -33,6 +33,10 @@ struct TerminalKeyboardFocusPolicy {
         mode == .automatic
     }
 
+    var allowsDirectTouchFocus: Bool {
+        mode == .automatic
+    }
+
     mutating func requestFocus() {
         mode = .automatic
         shouldRestoreOnReconnect = true
@@ -338,6 +342,8 @@ class GhosttyTerminalView: UIView {
     private var isShuttingDown = false
     private var isPaused = false
     private var customIORedrawScheduled = false
+    private var terminalIdentityResponseSuppressionDeadline: TimeInterval = 0
+    private var pendingTerminalIdentityResponseData = Data()
     private var keyRepeatTimer: DispatchSourceTimer?
     private var repeatingHardwareKey: UIKey?
     private var repeatingFallbackKey: Ghostty.Input.Key?
@@ -1034,6 +1040,11 @@ class GhosttyTerminalView: UIView {
         _ = becomeFirstResponder()
     }
 
+    private func requestKeyboardFocusFromDirectTouch() {
+        guard keyboardFocusPolicy.allowsDirectTouchFocus else { return }
+        requestKeyboardFocus()
+    }
+
     func dismissKeyboardForUser(suppressDirectTouchRefocus: Bool = false) {
         keyboardFocusPolicy.dismissForUser()
         if suppressDirectTouchRefocus {
@@ -1049,7 +1060,24 @@ class GhosttyTerminalView: UIView {
         dismissKeyboardForUser(suppressDirectTouchRefocus: true)
     }
 
+    func toggleKeyboardFromAccessoryBar() {
+        if isFirstResponder {
+            dismissKeyboardForUser()
+        } else {
+            requestKeyboardFocus()
+        }
+    }
+
+    func sendAccessoryKey(_ key: TerminalKey) {
+        handleToolbarKey(key)
+    }
+
+    func sendAccessoryCustomAction(_ action: TerminalAccessoryCustomAction) {
+        handleToolbarCustomAction(action)
+    }
+
     func shouldAutoFocusKeyboard(for touches: Set<UITouch>) -> Bool {
+        guard keyboardFocusPolicy.allowsDirectTouchFocus else { return false }
         guard touches.contains(where: { $0.type == .direct }) else { return true }
         return Date() >= suppressDirectTouchKeyboardFocusUntil
     }
@@ -1194,7 +1222,7 @@ class GhosttyTerminalView: UIView {
         super.touchesBegan(touches, with: event)
         // Tap just focuses keyboard - no mouse events (avoids accidental selection)
         guard shouldAutoFocusKeyboard(for: touches) else { return }
-        requestKeyboardFocus()
+        requestKeyboardFocusFromDirectTouch()
     }
 
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
@@ -1346,7 +1374,7 @@ class GhosttyTerminalView: UIView {
         let location = recognizer.location(in: self)
         let pos = ghosttyPoint(location)
 
-        requestKeyboardFocus()
+        requestKeyboardFocusFromDirectTouch()
 
         // Double-click to select word (no modifiers)
         surface.sendMousePos(.init(x: pos.x, y: pos.y, mods: []))
@@ -1368,7 +1396,7 @@ class GhosttyTerminalView: UIView {
         let location = recognizer.location(in: self)
         let pos = ghosttyPoint(location)
 
-        requestKeyboardFocus()
+        requestKeyboardFocusFromDirectTouch()
 
         // Triple-click to select line
         surface.sendMousePos(.init(x: pos.x, y: pos.y, mods: []))
@@ -1393,7 +1421,7 @@ class GhosttyTerminalView: UIView {
         switch recognizer.state {
         case .began:
             isSelecting = true
-            requestKeyboardFocus()
+            requestKeyboardFocusFromDirectTouch()
             // Start selection with click (no shift for initial position)
             surface.sendMousePos(.init(x: pos.x, y: pos.y, mods: []))
             surface.sendMouseButton(.init(action: .press, button: .left, mods: []))
@@ -2239,6 +2267,7 @@ class GhosttyTerminalView: UIView {
     /// Reset Ghostty's terminal state before binding a fresh remote shell to a reused surface.
     func resetTerminalForReconnect() {
         guard !isShuttingDown else { return }
+        suppressTerminalIdentityResponsesForReconnect()
         _ = surface?.perform(action: "reset")
         forceRefresh()
     }
@@ -2277,6 +2306,98 @@ class GhosttyTerminalView: UIView {
     /// Callback invoked when user types in the terminal
     var writeCallback: ((Data) -> Void)?
 
+    private func suppressTerminalIdentityResponsesForReconnect() {
+        terminalIdentityResponseSuppressionDeadline = Date().timeIntervalSinceReferenceDate + 4
+        pendingTerminalIdentityResponseData.removeAll(keepingCapacity: true)
+    }
+
+    private func filteredCustomIOWriteData(_ data: Data) -> Data? {
+        guard Date().timeIntervalSinceReferenceDate < terminalIdentityResponseSuppressionDeadline else {
+            pendingTerminalIdentityResponseData.removeAll(keepingCapacity: true)
+            return data
+        }
+
+        var candidate = Data()
+        if !pendingTerminalIdentityResponseData.isEmpty {
+            candidate.append(pendingTerminalIdentityResponseData)
+            pendingTerminalIdentityResponseData.removeAll(keepingCapacity: true)
+        }
+        candidate.append(data)
+
+        let result = Self.removingTerminalIdentityResponses(from: candidate)
+        pendingTerminalIdentityResponseData = result.pending
+        return result.filtered.isEmpty ? nil : result.filtered
+    }
+
+    private static func removingTerminalIdentityResponses(from data: Data) -> (filtered: Data, pending: Data) {
+        let bytes = Array(data)
+        guard !bytes.isEmpty else { return (Data(), Data()) }
+
+        var output: [UInt8] = []
+        output.reserveCapacity(bytes.count)
+        var index = 0
+
+        while index < bytes.count {
+            let match = terminalIdentityResponseMatch(in: bytes, from: index)
+            if let end = match.end {
+                index = end
+                continue
+            }
+            if match.isPartial {
+                return (Data(output), Data(bytes[index...]))
+            }
+
+            output.append(bytes[index])
+            index += 1
+        }
+
+        return (Data(output), Data())
+    }
+
+    private static func terminalIdentityResponseMatch(
+        in bytes: [UInt8],
+        from index: Int
+    ) -> (end: Int?, isPartial: Bool) {
+        guard bytes[index] == 0x1B else { return (nil, false) } // ESC
+        guard index + 2 < bytes.count else { return (nil, false) }
+
+        if bytes[index + 1] == 0x5B, // [
+           bytes[index + 2] == 0x3E || bytes[index + 2] == 0x3F { // > or ?
+            var cursor = index + 3
+            while cursor < bytes.count, cursor - index <= 64 {
+                let byte = bytes[cursor]
+                if byte == 0x63 { // c
+                    return (cursor + 1, false)
+                }
+                guard isCSIParameterByte(byte) else { return (nil, false) }
+                cursor += 1
+            }
+            return (nil, cursor == bytes.count)
+        }
+
+        if bytes[index + 1] == 0x50 { // P (DCS)
+            guard index + 3 < bytes.count,
+                  bytes[index + 2] == 0x3E, // >
+                  bytes[index + 3] == 0x7C else { // |
+                return (nil, false)
+            }
+            var cursor = index + 4
+            while cursor + 1 < bytes.count {
+                if bytes[cursor] == 0x1B, bytes[cursor + 1] == 0x5C { // ST
+                    return (cursor + 2, false)
+                }
+                cursor += 1
+            }
+            return (nil, true)
+        }
+
+        return (nil, false)
+    }
+
+    private static func isCSIParameterByte(_ byte: UInt8) -> Bool {
+        byte == 0x3B || (byte >= 0x30 && byte <= 0x39)
+    }
+
     /// Feed data from SSH channel to the terminal for rendering.
     func feedData(_ data: Data) {
         guard let surface = surface?.unsafeCValue else { return }
@@ -2301,8 +2422,9 @@ class GhosttyTerminalView: UIView {
             let view = Unmanaged<GhosttyTerminalView>.fromOpaque(userdata).takeUnretainedValue()
             guard let data = data, len > 0 else { return }
             let swiftData = Data(bytes: data, count: len)
+            guard let filteredData = view.filteredCustomIOWriteData(swiftData) else { return }
             // Call directly - Ghostty calls this from main thread, no queue hop needed
-            view.writeCallback?(swiftData)
+            view.writeCallback?(filteredData)
         }, userdata)
     }
 
@@ -2445,7 +2567,7 @@ extension GhosttyTerminalView {
     }
 
     private var shouldHideKeyboardAccessoryBar: Bool {
-        hasHardwareKeyboardAttached
+        true
     }
 
     fileprivate func resolvedInputAccessoryView() -> UIView? {
@@ -2457,7 +2579,7 @@ extension GhosttyTerminalView {
                 self?.handleToolbarKey(key)
             }, onCustomAction: { [weak self] action in
                 self?.handleToolbarCustomAction(action)
-            }, onVoice: onVoiceButtonTapped, onDismissKeyboard: { [weak self] in
+            }, onVoice: onVoiceButtonTapped, onKeyboardButton: { [weak self] in
                 self?.dismissKeyboardFromToolbar()
             })
             keyboardToolbar = toolbar
@@ -2667,12 +2789,42 @@ private extension TerminalAccessoryShortcutModifiers {
     }
 }
 
+@MainActor
+struct TerminalAccessoryBar: UIViewRepresentable {
+    let sessionId: UUID
+    var onVoice: (() -> Void)?
+
+    func makeUIView(context: Context) -> UIView {
+        let toolbar = TerminalInputAccessoryView(onKey: { key in
+            DispatchQueue.main.async {
+                ConnectionSessionManager.shared.peekTerminal(for: sessionId)?.sendAccessoryKey(key)
+            }
+        }, onCustomAction: { action in
+            DispatchQueue.main.async {
+                ConnectionSessionManager.shared.peekTerminal(for: sessionId)?.sendAccessoryCustomAction(action)
+            }
+        }, onVoice: onVoice, onKeyboardButton: {
+            DispatchQueue.main.async {
+                ConnectionSessionManager.shared.peekTerminal(for: sessionId)?.toggleKeyboardFromAccessoryBar()
+            }
+        })
+        toolbar.setKeyboardFocused(ConnectionSessionManager.shared.peekTerminal(for: sessionId)?.isFirstResponder == true)
+        return toolbar
+    }
+
+    func updateUIView(_ uiView: UIView, context: Context) {
+        guard let toolbar = uiView as? TerminalInputAccessoryView else { return }
+        toolbar.onVoice = onVoice
+        toolbar.setKeyboardFocused(ConnectionSessionManager.shared.peekTerminal(for: sessionId)?.isFirstResponder == true)
+    }
+}
+
 // MARK: - Native UIKit Input Accessory View with Glass Effect
 
-private class TerminalInputAccessoryView: UIInputView {
+private class TerminalInputAccessoryView: UIView {
     private let onKey: (TerminalKey) -> Void
     private let onCustomAction: (TerminalAccessoryCustomAction) -> Void
-    private let onDismissKeyboard: () -> Void
+    private let onKeyboardButton: () -> Void
     var onVoice: (() -> Void)? {
         didSet {
             updateLeadingButtonsState()
@@ -2686,8 +2838,9 @@ private class TerminalInputAccessoryView: UIInputView {
     private weak var altButton: UIButton?
     private weak var commandButton: UIButton?
     private weak var shiftButton: UIButton?
+    private weak var keyboardButton: UIButton?
+    private weak var composeButton: UIButton?
     private weak var voiceButton: UIButton?
-    private weak var dismissKeyboardButton: UIButton?
     private weak var leadingButtonsStack: UIStackView?
     private weak var leadingButtonsSeparatorView: UIView?
     private weak var backgroundEffectView: UIVisualEffectView?
@@ -2703,13 +2856,13 @@ private class TerminalInputAccessoryView: UIInputView {
         onKey: @escaping (TerminalKey) -> Void,
         onCustomAction: @escaping (TerminalAccessoryCustomAction) -> Void,
         onVoice: (() -> Void)? = nil,
-        onDismissKeyboard: @escaping () -> Void
+        onKeyboardButton: @escaping () -> Void
     ) {
         self.onKey = onKey
         self.onCustomAction = onCustomAction
         self.onVoice = onVoice
-        self.onDismissKeyboard = onDismissKeyboard
-        super.init(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 48), inputViewStyle: .keyboard)
+        self.onKeyboardButton = onKeyboardButton
+        super.init(frame: CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 48))
         setupView()
         observeThemeChanges()
         observeAccessoryProfileChanges()
@@ -2760,19 +2913,26 @@ private class TerminalInputAccessoryView: UIInputView {
         addSubview(leadingStack)
         leadingButtonsStack = leadingStack
 
+        let keyboard = makeIconButton(icon: "keyboard.chevron.compact.down") { [weak self] in
+            self?.onKeyboardButton()
+        }
+        keyboard.accessibilityLabel = String(localized: "Hide keyboard")
+        keyboardButton = keyboard
+        leadingStack.addArrangedSubview(keyboard)
+
+        let compose = makeIconButton(icon: "text.bubble") {
+            NotificationCenter.default.post(name: .openInputBuffer, object: nil)
+        }
+        compose.accessibilityLabel = String(localized: "Compose")
+        composeButton = compose
+        leadingStack.addArrangedSubview(compose)
+
         let voice = makeIconButton(icon: "mic.fill") { [weak self] in
             self?.onVoice?()
         }
         voice.accessibilityLabel = String(localized: "Voice input")
         voiceButton = voice
         leadingStack.addArrangedSubview(voice)
-
-        let dismissKeyboard = makeIconButton(icon: "keyboard.chevron.compact.down") { [weak self] in
-            self?.onDismissKeyboard()
-        }
-        dismissKeyboard.accessibilityLabel = String(localized: "Hide keyboard")
-        dismissKeyboardButton = dismissKeyboard
-        leadingStack.addArrangedSubview(dismissKeyboard)
 
         let leadingButtonsSeparator = makeSeparator()
         leadingButtonsSeparatorView = leadingButtonsSeparator
@@ -2934,6 +3094,9 @@ private class TerminalInputAccessoryView: UIInputView {
         for item in profile.layout.activeItems {
             switch item {
             case .system(let actionID):
+                // Compose is pinned to the leading button stack; never duplicate it
+                // inside the scrollable list (covers existing customized profiles).
+                if actionID == .openInputBuffer { continue }
                 guard let button = makeSystemActionButton(for: actionID) else { continue }
                 dynamicItemsStack.addArrangedSubview(button)
             case .custom(let actionID):
@@ -2957,7 +3120,7 @@ private class TerminalInputAccessoryView: UIInputView {
         }
 
         if actionID == .openInputBuffer {
-            let button = makeIconButton(icon: "text.bubble") { [weak self] in
+            let button = makeIconButton(icon: "text.bubble") {
                 NotificationCenter.default.post(name: .openInputBuffer, object: nil)
             }
             button.accessibilityLabel = actionID.listTitle
@@ -3328,6 +3491,10 @@ private class TerminalInputAccessoryView: UIInputView {
         return (ctrl, alt, command, shift)
     }
 
+    func setKeyboardFocused(_ isFocused: Bool) {
+        updateKeyboardButton(isFocused: isFocused)
+    }
+
     private func updateModifierState() {
         UIView.animate(withDuration: 0.2) {
             self.updateModifierButton(self.ctrlButton, isActive: self.ctrlActive)
@@ -3364,19 +3531,32 @@ private class TerminalInputAccessoryView: UIInputView {
         }
     }
 
+    private func updateKeyboardButton(isFocused: Bool) {
+        guard let keyboardButton else { return }
+        let icon = isFocused ? "keyboard.chevron.compact.down" : "keyboard"
+        let label = isFocused ? String(localized: "Hide keyboard") : String(localized: "Show keyboard")
+        let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
+        keyboardButton.setImage(UIImage(systemName: icon, withConfiguration: config), for: .normal)
+        keyboardButton.accessibilityLabel = label
+    }
+
     private func updateLeadingButtonsState() {
         let defaults = UserDefaults.standard
         let voiceEnabled = (defaults.object(forKey: "terminalVoiceButtonEnabled") as? Bool ?? true) && onVoice != nil
-        let dismissEnabled = defaults.object(forKey: "terminalKeyboardDismissButtonEnabled") as? Bool ?? true
-        let hasVisibleLeadingButton = voiceEnabled || dismissEnabled
+        // Compose is a primary action and is always pinned at the start of the bar.
+        let hasVisibleLeadingButton = true
+
+        keyboardButton?.isHidden = false
+        keyboardButton?.isEnabled = true
+        keyboardButton?.alpha = 1.0
+
+        composeButton?.isHidden = false
+        composeButton?.isEnabled = true
+        composeButton?.alpha = 1.0
 
         voiceButton?.isHidden = !voiceEnabled
         voiceButton?.isEnabled = voiceEnabled
         voiceButton?.alpha = 1.0
-
-        dismissKeyboardButton?.isHidden = !dismissEnabled
-        dismissKeyboardButton?.isEnabled = dismissEnabled
-        dismissKeyboardButton?.alpha = 1.0
 
         leadingButtonsStack?.isHidden = !hasVisibleLeadingButton
         leadingButtonsSeparatorView?.isHidden = !hasVisibleLeadingButton
