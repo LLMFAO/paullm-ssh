@@ -26,7 +26,7 @@ private struct ContactOption: Identifiable {
 private let contactOptions: [ContactOption] = [
     ContactOption(title: String(localized: "Developer"), subtitle: "@wiedymi", icon: "", iconImage: nil, iconText: "𝕏", color: .primary, url: "https://x.com/wiedymi"),
     ContactOption(title: String(localized: "Discord"), subtitle: String(localized: "Join Community"), icon: "", iconImage: "DiscordLogo", iconText: nil, color: Color(red: 0.345, green: 0.396, blue: 0.949), url: "https://discord.gg/zemMZtrkSb"),
-    ContactOption(title: String(localized: "Email"), subtitle: "support.dev", icon: "envelope.fill", iconImage: nil, iconText: nil, color: .orange, url: "mailto:support.dev")
+    ContactOption(title: String(localized: "Email"), subtitle: "vvterm@vivy.company", icon: "envelope.fill", iconImage: nil, iconText: nil, color: .orange, url: "mailto:vvterm@vivy.company")
 ]
 
 // MARK: - About Settings View
@@ -36,7 +36,7 @@ struct AboutSettingsView: View {
     @State private var showingReviewSheet = false
 
     private var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "2.1"
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
     }
 
     private var buildNumber: String {
@@ -44,19 +44,25 @@ struct AboutSettingsView: View {
     }
 
     private var appIcon: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .foregroundColor(.primary.opacity(0.06))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(Color.primary.opacity(0.12), lineWidth: 1)
-                )
-            Text("#")
-                .font(.system(size: 40, weight: .thin, design: .rounded))
-                .foregroundStyle(.primary)
-        }
+        appIconImage
+            .resizable()
+            .aspectRatio(contentMode: .fit)
         .frame(width: 80, height: 80)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(color: .black.opacity(0.1), radius: 6, y: 3)
+    }
+
+    private var appIconImage: Image {
+        #if os(macOS)
+        if let nsImage = NSImage(named: "AppIcon") {
+            return Image(nsImage: nsImage)
+        }
+        #else
+        if let uiImage = UIImage(named: "AppIcon60x60") ?? UIImage(named: "AppIcon") {
+            return Image(uiImage: uiImage)
+        }
+        #endif
+        return Image(systemName: "terminal")
     }
 
     private var subtitleColor: Color {
