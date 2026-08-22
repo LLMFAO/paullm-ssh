@@ -538,6 +538,15 @@ final class ConnectionSessionManager: ObservableObject {
         defer { isSuspendingForBackground = false }
 
         pauseCachedTerminalsForBackground()
+
+        // Backgrounding tears down the SSH transport, which kills a plain
+        // shell's remote process outright. Parking such a session would leave a
+        // dead tab that can only ever produce a brand new shell, so close them
+        // here and keep only the tmux-backed sessions that can truly reattach.
+        for session in sessions.filter({ !isTmuxBackedSession($0) }) {
+            closeSession(session)
+        }
+
         let sessionsToSuspend = sessions
         var unregisterResults: [SSHUnregisterResult] = []
         unregisterResults.reserveCapacity(sessionsToSuspend.count)

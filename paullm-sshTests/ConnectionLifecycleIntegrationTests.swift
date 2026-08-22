@@ -73,6 +73,36 @@ struct ConnectionLifecycleIntegrationTests {
     }
 
     @Test
+    func suspendingForBackgroundClosesPlainShellsAndKeepsTmuxSessions() async {
+        await withCleanConnectionManager { manager in
+            let serverId = UUID()
+            let shellSession = ConnectionSession(
+                serverId: serverId,
+                title: "Plain shell",
+                connectionState: .connected,
+                tmuxStatus: .off,
+                startup: .shell
+            )
+            let tmuxSession = ConnectionSession(
+                serverId: serverId,
+                title: "tmux",
+                connectionState: .connected,
+                tmuxStatus: .foreground
+            )
+            manager.sessions = [shellSession, tmuxSession]
+            manager.selectedSessionId = shellSession.id
+
+            await manager.suspendAllForBackground()
+
+            // The transport is torn down on background, so the plain shell's
+            // remote process is gone; only the tmux session can reattach.
+            #expect(!manager.sessions.contains { $0.id == shellSession.id })
+            #expect(manager.sessions.contains { $0.id == tmuxSession.id })
+            #expect(manager.selectedSessionId == tmuxSession.id)
+        }
+    }
+
+    @Test
     func connectionManagerRejectsStaleRegistrationFromDifferentClient() async {
         await withCleanConnectionManager { manager in
             let serverId = UUID()
