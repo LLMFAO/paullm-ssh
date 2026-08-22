@@ -17,6 +17,7 @@ IOS_DEPLOYMENT_TARGET="16.0"
 
 GHOSTTY_REPO="https://github.com/wiedymi/ghostty.git"
 GHOSTTY_REF="${GHOSTTY_REF:-custom-io}"
+ZIG_BIN="${ZIG_BIN:-zig}"
 BUNDLE_ID="app.paullm.ssh"
 
 KEEP_WORKDIR="${KEEP_WORKDIR:-0}"
@@ -48,6 +49,7 @@ Commands:
 
 Env:
   GHOSTTY_REF=<git-ref>   Build a specific ghostty ref (default: custom-io)
+  ZIG_BIN=<path>          Zig 0.15.2 executable (default: zig on PATH)
   KEEP_WORKDIR=1          Keep ghostty build temp dir for debugging
 EOF
 }
@@ -61,10 +63,17 @@ require_cmd() {
 
 check_deps_ghostty() {
     require_cmd git
-    require_cmd zig
+    require_cmd "$ZIG_BIN"
     require_cmd xcodebuild
     require_cmd perl
     require_cmd rsync
+
+    local zig_version
+    zig_version="$($ZIG_BIN version)"
+    if [ "$zig_version" != "0.15.2" ]; then
+        log_error "Ghostty requires Zig 0.15.2; found ${zig_version} at ${ZIG_BIN}"
+        exit 1
+    fi
 }
 
 check_deps_ssh() {
@@ -87,7 +96,7 @@ strip_lib() {
 build_ghosttykit() {
     log_section "GhosttyKit"
 
-    GHOSTTY_WORKDIR="$(mktemp -d "/tmp/ghosttykit.XXXXXX")"
+    GHOSTTY_WORKDIR="$(mktemp -d "/private/tmp/ghosttykit.XXXXXX")"
     local workdir="$GHOSTTY_WORKDIR"
 
     log_info "Cloning ghostty @ ${GHOSTTY_REF}..."
@@ -163,6 +172,15 @@ PY
     perl -0pi -e 's@// iOS [0-9]+ picked arbitrarily@// iOS 16 matches app deployment target@' "${workdir}/ghostty/src/build/Config.zig"
     perl -0pi -e 's/\\.ios => \\.\\{ \\.semver = \\.\\{\\n\\s*\\.major = [0-9]+,\\n\\s*\\.minor = [0-9]+,\\n\\s*\\.patch = [0-9]+,\\n\\s*\\} \\},/\\.ios => .{ .semver = .{\\n            .major = 16,\\n            .minor = 0,\\n            .patch = 0,\\n        } },/s' "${workdir}/ghostty/src/build/Config.zig"
 
+    # Keep this second, simpler replacement because the fork's formatting has
+    # changed across revisions while the first replacement is intentionally
+    # conservative.
+    perl -0pi -e 's/(\.ios => .*?\.major =)[[:space:]]*[0-9]+/${1} 16/s' "${workdir}/ghostty/src/build/Config.zig"
+
+    # Callback-backed SSH sessions have no local process metadata. The custom
+    # Ghostty fork currently omits this union case, so make it explicit.
+    perl -0pi -e 's/(\.exec => \|\*exec\| exec\.getProcessInfo\(info\),\n)(\s*)\};/$1$2.callback => null,\n$2};/' "${workdir}/ghostty/src/termio/backend.zig"
+
     log_info "Building GhosttyKit.xcframework..."
 
     local zig_flags=(
@@ -181,7 +199,7 @@ PY
         -Dxcframework-target=universal
     )
 
-    (cd "${workdir}/ghostty" && zig build "${zig_flags[@]}" -p "${workdir}/zig-out")
+    (cd "${workdir}/ghostty" && "$ZIG_BIN" build "${zig_flags[@]}" -p "${workdir}/zig-out")
 
     local xcframework="${workdir}/ghostty/macos/GhosttyKit.xcframework"
     if [ ! -d "${xcframework}" ]; then
