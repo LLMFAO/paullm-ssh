@@ -82,6 +82,17 @@ final class TerminalTabManager: ObservableObject {
         paneStates[paneId]?.tmuxStatus
     }
 
+    private func isTmuxBackedPane(_ state: TerminalPaneState) -> Bool {
+        guard state.startup?.kind != .shell else { return false }
+        return state.tmuxStatus.indicatesTmux
+    }
+
+    private func isRestorableTab(_ tab: TerminalTab) -> Bool {
+        guard tab.startup?.kind != .shell else { return false }
+        guard let rootState = paneStates[tab.rootPaneId] else { return true }
+        return isTmuxBackedPane(rootState)
+    }
+
     private func setPaneTmuxStatus(_ status: TmuxStatus, for paneId: UUID) {
         paneStates[paneId]?.tmuxStatus = status
         if status == .foreground || status == .background || status == .installing {
@@ -585,6 +596,24 @@ final class TerminalTabManager: ObservableObject {
         }
     }
 
+    func handleShellExit(for paneId: UUID) {
+        guard let state = paneStates[paneId] else { return }
+
+        if isTmuxBackedPane(state) {
+            updatePaneState(paneId, connectionState: .disconnected)
+            Task {
+                await unregisterSSHClient(for: paneId)
+            }
+            return
+        }
+
+        guard let tab = tabs(for: state.serverId).first(where: { $0.allPaneIds.contains(paneId) }) else {
+            cleanupPane(paneId)
+            return
+        }
+        closePane(tab: tab, paneId: paneId)
+    }
+
     // MARK: - Pane State
 
     /// Update connection state for a pane
@@ -993,11 +1022,23 @@ final class TerminalTabManager: ObservableObject {
     // MARK: - Persistence
 
     private func makeServerSnapshots() -> [TerminalTabsSnapshot.ServerSnapshot] {
-        tabsByServer.map { serverId, tabs in
-            TerminalTabsSnapshot.ServerSnapshot(
+        tabsByServer.compactMap { serverId, tabs in
+            let restorableTabs = tabs.filter(isRestorableTab)
+            guard !restorableTabs.isEmpty else { return nil }
+            let restorableTabIds = Set(restorableTabs.map(\.id))
+            let selectedTabId = selectedTabByServer[serverId]
+                .flatMap { restorableTabIds.contains($0) ? $0 : nil }
+                ?? restorableTabs.first?.id
+
+            return TerminalTabsSnapshot.ServerSnapshot(
                 serverId: serverId,
-                tabs: tabs.map { TerminalTabsSnapshot.TabSnapshot(from: $0) },
-                selectedTabId: selectedTabByServer[serverId],
+                tabs: restorableTabs.map {
+                    TerminalTabsSnapshot.TabSnapshot(
+                        from: $0,
+                        rootTmuxStatus: paneStates[$0.rootPaneId]?.tmuxStatus
+                    )
+                },
+                selectedTabId: selectedTabId,
                 selectedView: selectedViewByServer[serverId]
             )
         }
@@ -1007,7 +1048,10 @@ final class TerminalTabManager: ObservableObject {
         TerminalTabsSnapshot(servers: makeServerSnapshots())
     }
 
-    private func makeRestoredPaneStates(from tabsByServer: [UUID: [TerminalTab]]) -> [UUID: TerminalPaneState] {
+    private func makeRestoredPaneStates(
+        from tabsByServer: [UUID: [TerminalTab]],
+        rootTmuxStatuses: [UUID: TmuxStatus] = [:]
+    ) -> [UUID: TerminalPaneState] {
         var restoredPaneStates: [UUID: TerminalPaneState] = [:]
 
         for tabs in tabsByServer.values {
@@ -1018,6 +1062,9 @@ final class TerminalTabManager: ObservableObject {
                         tabId: tab.id,
                         serverId: tab.serverId
                     )
+                    if let rootTmuxStatus = rootTmuxStatuses[paneId] {
+                        paneState.tmuxStatus = rootTmuxStatus
+                    }
                     if !tmuxResolver.isTmuxEnabled(for: tab.serverId) {
                         paneState.tmuxStatus = .off
                     }
@@ -1032,16 +1079,38 @@ final class TerminalTabManager: ObservableObject {
         return restoredPaneStates
     }
 
+    private func shouldRestoreTabSnapshot(
+        _ tab: TerminalTabsSnapshot.TabSnapshot,
+        serverId: UUID
+    ) -> Bool {
+        guard tab.startup?.kind != .shell else { return false }
+        guard tmuxResolver.isTmuxEnabled(for: serverId) else { return false }
+        return (tab.rootTmuxStatus ?? .unknown).indicatesTmux
+    }
+
     private func applyRestoredSnapshot(_ snapshot: TerminalTabsSnapshot) {
         var restoredTabsByServer: [UUID: [TerminalTab]] = [:]
         var restoredSelectedTabs: [UUID: UUID] = [:]
         var restoredSelectedViews: [UUID: String] = [:]
+        var restoredRootTmuxStatuses: [UUID: TmuxStatus] = [:]
 
         for server in snapshot.servers {
-            let tabs = server.tabs.map { $0.toTerminalTab() }
+            let tabSnapshots = server.tabs.filter {
+                shouldRestoreTabSnapshot($0, serverId: server.serverId)
+            }
+            let tabs = tabSnapshots.map { snapshot in
+                if let rootTmuxStatus = snapshot.rootTmuxStatus {
+                    restoredRootTmuxStatuses[snapshot.rootPaneId] = rootTmuxStatus
+                }
+                return snapshot.toTerminalTab()
+            }
+            guard !tabs.isEmpty else { continue }
+            let restoredTabIds = Set(tabs.map(\.id))
             restoredTabsByServer[server.serverId] = tabs
-            if let selected = server.selectedTabId {
+            if let selected = server.selectedTabId, restoredTabIds.contains(selected) {
                 restoredSelectedTabs[server.serverId] = selected
+            } else if let firstTab = tabs.first {
+                restoredSelectedTabs[server.serverId] = firstTab.id
             }
             if let view = server.selectedView {
                 restoredSelectedViews[server.serverId] = view
@@ -1051,7 +1120,10 @@ final class TerminalTabManager: ObservableObject {
         tabsByServer = restoredTabsByServer
         selectedTabByServer = restoredSelectedTabs
         selectedViewByServer = restoredSelectedViews
-        paneStates = makeRestoredPaneStates(from: restoredTabsByServer)
+        paneStates = makeRestoredPaneStates(
+            from: restoredTabsByServer,
+            rootTmuxStatuses: restoredRootTmuxStatuses
+        )
         connectedServerIds = Set(restoredTabsByServer.keys)
     }
 
@@ -1106,9 +1178,10 @@ private struct TerminalTabsSnapshot: Codable {
         let layout: TerminalSplitNode?
         let focusedPaneId: UUID
         let rootPaneId: UUID
+        let rootTmuxStatus: TmuxStatus?
         let startup: TerminalSessionStartup?
 
-        init(from tab: TerminalTab) {
+        init(from tab: TerminalTab, rootTmuxStatus: TmuxStatus?) {
             self.id = tab.id
             self.serverId = tab.serverId
             self.title = tab.title
@@ -1116,6 +1189,7 @@ private struct TerminalTabsSnapshot: Codable {
             self.layout = tab.layout
             self.focusedPaneId = tab.focusedPaneId
             self.rootPaneId = tab.rootPaneId
+            self.rootTmuxStatus = rootTmuxStatus
             self.startup = tab.startup
         }
 

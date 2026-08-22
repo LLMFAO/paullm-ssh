@@ -208,10 +208,7 @@ struct TerminalTabView: View {
     }
 
     private func handlePaneExit(paneId: UUID) {
-        tabManager.updatePaneState(paneId, connectionState: .disconnected)
-        Task {
-            await tabManager.unregisterSSHClient(for: paneId)
-        }
+        tabManager.handleShellExit(for: paneId)
     }
 
     // MARK: - Split Actions

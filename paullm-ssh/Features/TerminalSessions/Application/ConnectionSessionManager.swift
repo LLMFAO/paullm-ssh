@@ -151,6 +151,11 @@ final class ConnectionSessionManager: ObservableObject {
         sessionWithID(sessionId)?.tmuxStatus
     }
 
+    private func isTmuxBackedSession(_ session: ConnectionSession) -> Bool {
+        guard session.startup?.kind != .shell else { return false }
+        return session.tmuxStatus.indicatesTmux
+    }
+
     private func setTmuxStatus(_ status: TmuxStatus, for sessionId: UUID) {
         guard let index = indexOfSession(sessionId) else { return }
         sessions[index].tmuxStatus = status
@@ -573,8 +578,7 @@ final class ConnectionSessionManager: ObservableObject {
     /// We tell the two apart by probing the transport with a trivial command.
     func handleShellExit(for sessionId: UUID) {
         guard let client = sshClient(forSessionId: sessionId) else {
-            // Nothing to probe — treat as a drop so the tab survives for reconnect.
-            keepSessionForReconnect(sessionId)
+            closeOrKeepSessionForReconnect(sessionId)
             return
         }
 
@@ -609,10 +613,20 @@ final class ConnectionSessionManager: ObservableObject {
                     // Clean end (tmux emptied / CLI exited / no tmux): close the session.
                     self.closeSession(session)
                 } else {
-                    // Connection dropped: keep the tab so the user can reconnect.
-                    self.keepSessionForReconnect(sessionId)
+                    // Connection dropped: only tmux-backed sessions have a durable
+                    // host process to reconnect to.
+                    self.closeOrKeepSessionForReconnect(sessionId)
                 }
             }
+        }
+    }
+
+    private func closeOrKeepSessionForReconnect(_ sessionId: UUID) {
+        guard let session = sessionWithID(sessionId) else { return }
+        if isTmuxBackedSession(session) {
+            keepSessionForReconnect(sessionId)
+        } else {
+            closeSession(session)
         }
     }
 
@@ -1087,20 +1101,36 @@ final class ConnectionSessionManager: ObservableObject {
 // MARK: - Persistence
 
 extension ConnectionSessionManager {
+    private var restorableSessions: [ConnectionSession] {
+        sessions.filter(isTmuxBackedSession)
+    }
+
     private func makeServerSnapshots() -> [ConnectionSessionsSnapshot.ServerSnapshot] {
-        Set(sessions.map(\.serverId)).map { serverId in
-            ConnectionSessionsSnapshot.ServerSnapshot(
+        let persistedSessions = restorableSessions
+        let persistedSessionIds = Set(persistedSessions.map(\.id))
+
+        return Set(persistedSessions.map(\.serverId)).map { serverId in
+            let selected = selectedSessionByServer[serverId]
+                .flatMap { persistedSessionIds.contains($0) ? $0 : nil }
+                ?? persistedSessions.first { $0.serverId == serverId }?.id
+            return ConnectionSessionsSnapshot.ServerSnapshot(
                 serverId: serverId,
-                selectedSessionId: selectedSessionByServer[serverId],
+                selectedSessionId: selected,
                 selectedView: selectedViewByServer[serverId]
             )
         }
     }
 
     private func makeSnapshot() -> ConnectionSessionsSnapshot {
-        ConnectionSessionsSnapshot(
-            sessions: sessions.map { ConnectionSessionsSnapshot.SessionSnapshot(from: $0) },
-            selectedSessionId: selectedSessionId,
+        let persistedSessions = restorableSessions
+        let persistedSessionIds = Set(persistedSessions.map(\.id))
+        let persistedSelectedSessionId = selectedSessionId
+            .flatMap { persistedSessionIds.contains($0) ? $0 : nil }
+            ?? persistedSessions.first?.id
+
+        return ConnectionSessionsSnapshot(
+            sessions: persistedSessions.map { ConnectionSessionsSnapshot.SessionSnapshot(from: $0) },
+            selectedSessionId: persistedSelectedSessionId,
             serverSelections: makeServerSnapshots()
         )
     }
@@ -1113,22 +1143,29 @@ extension ConnectionSessionManager {
                 restoredSessions[index].tmuxStatus = .off
             }
         }
+        restoredSessions = restoredSessions.filter(isTmuxBackedSession)
+        let restoredSessionIds = Set(restoredSessions.map(\.id))
+        let restoredServerIds = Set(restoredSessions.map(\.serverId))
 
         sessions = restoredSessions
         selectedSessionId = snapshot.selectedSessionId
+            .flatMap { restoredSessionIds.contains($0) ? $0 : nil }
+            ?? restoredSessions.first?.id
         selectedSessionByServer = Dictionary(
             uniqueKeysWithValues: snapshot.serverSelections.compactMap { snapshot in
                 guard let selected = snapshot.selectedSessionId else { return nil }
+                guard restoredSessionIds.contains(selected) else { return nil }
                 return (snapshot.serverId, selected)
             }
         )
         selectedViewByServer = Dictionary(
             uniqueKeysWithValues: snapshot.serverSelections.compactMap { snapshot in
                 guard let view = snapshot.selectedView else { return nil }
+                guard restoredServerIds.contains(snapshot.serverId) else { return nil }
                 return (snapshot.serverId, view)
             }
         )
-        connectedServerIds = Set(restoredSessions.map(\.serverId))
+        connectedServerIds = restoredServerIds
     }
 
     private func schedulePersist() {
@@ -1172,6 +1209,7 @@ private struct ConnectionSessionsSnapshot: Codable {
         let createdAt: Date
         let lastActivity: Date
         let autoReconnect: Bool
+        let tmuxStatus: TmuxStatus?
         let parentSessionId: UUID?
         let workingDirectory: String?
         let startup: TerminalSessionStartup?
@@ -1183,6 +1221,7 @@ private struct ConnectionSessionsSnapshot: Codable {
             self.createdAt = session.createdAt
             self.lastActivity = session.lastActivity
             self.autoReconnect = session.autoReconnect
+            self.tmuxStatus = session.tmuxStatus
             self.parentSessionId = session.parentSessionId
             self.workingDirectory = session.workingDirectory
             self.startup = session.startup
@@ -1198,6 +1237,7 @@ private struct ConnectionSessionsSnapshot: Codable {
                 lastActivity: lastActivity,
                 terminalSurfaceId: nil,
                 autoReconnect: autoReconnect,
+                tmuxStatus: tmuxStatus ?? .unknown,
                 workingDirectory: workingDirectory,
                 startup: startup,
                 parentSessionId: parentSessionId

@@ -169,17 +169,25 @@ final class TmuxAttachResolver {
         startup: TerminalSessionStartup? = nil,
         setPrompt: @escaping (TmuxAttachPrompt?) -> Void
     ) async -> TmuxAttachSelection {
-        // On reconnect, reuse the previous session choice for this tab/pane
+        // On reconnect, trust the host's live tmux state. A remembered app tab
+        // should never silently recreate a tmux session that the user closed.
         if let existingName = sessionNames[entityId],
            let ownership = sessionOwnership[entityId] {
+            let sessions = await RemoteTmuxManager.shared.listSessions(using: client)
+            if sessions.contains(where: { $0.name == existingName }) {
+                return .attachExisting(sessionName: existingName)
+            }
+
             switch ownership {
             case .managed:
-                return .createManaged
+                return await requestSelection(
+                    entityId: entityId,
+                    serverId: serverId,
+                    availableSessions: sessionInfosForPrompt(from: sessions),
+                    message: String(localized: "The previous tmux session is no longer running. Choose a running session, or start a new one."),
+                    setPrompt: setPrompt
+                )
             case .external:
-                let sessions = await RemoteTmuxManager.shared.listSessions(using: client)
-                if sessions.contains(where: { $0.name == existingName }) {
-                    return .attachExisting(sessionName: existingName)
-                }
                 // Session no longer exists, fall through to normal resolution
                 sessionNames.removeValue(forKey: entityId)
                 sessionOwnership.removeValue(forKey: entityId)
@@ -216,6 +224,7 @@ final class TmuxAttachResolver {
                 entityId: entityId,
                 serverId: serverId,
                 availableSessions: sessionInfosForPrompt(from: sessions),
+                message: nil,
                 setPrompt: setPrompt
             )
         }
@@ -339,6 +348,7 @@ final class TmuxAttachResolver {
         entityId: UUID,
         serverId: UUID,
         availableSessions: [TmuxAttachSessionInfo],
+        message: String?,
         setPrompt: @escaping (TmuxAttachPrompt?) -> Void
     ) async -> TmuxAttachSelection {
         let serverName = ServerManager.shared.servers.first(where: { $0.id == serverId })?.name ?? String(localized: "Server")
@@ -346,7 +356,8 @@ final class TmuxAttachResolver {
             id: entityId,
             serverId: serverId,
             serverName: serverName,
-            existingSessions: availableSessions
+            existingSessions: availableSessions,
+            message: message
         )
 
         return await withCheckedContinuation { continuation in

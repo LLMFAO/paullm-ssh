@@ -76,6 +76,8 @@ struct TmuxAttachPromptSheet: View {
         if hasSessions {
             #if os(macOS)
             Form {
+                promptMessageSection
+
                 Section {
                     ForEach(prompt.existingSessions) { session in
                         Button {
@@ -111,6 +113,8 @@ struct TmuxAttachPromptSheet: View {
             .formStyle(.grouped)
             #else
             List {
+                promptMessageSection
+
                 Section {
                     ForEach(prompt.existingSessions) { session in
                         Button {
@@ -153,6 +157,17 @@ struct TmuxAttachPromptSheet: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 20)
+        }
+    }
+
+    @ViewBuilder
+    private var promptMessageSection: some View {
+        if let message = prompt.message, !message.isEmpty {
+            Section {
+                Text(message)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -297,23 +312,23 @@ struct TmuxAttachPromptSheet: View {
 
     @ViewBuilder
     private var noSessionsView: some View {
-        if #available(iOS 17.0, macOS 14.0, *) {
-            ContentUnavailableView(
-                "No tmux sessions found",
-                systemImage: "terminal",
-                description: Text("Create a new session, or continue without tmux.")
-            )
-        } else {
-            VStack(spacing: 8) {
+        VStack(spacing: 10) {
+            if #available(iOS 17.0, macOS 14.0, *) {
+                ContentUnavailableView(
+                    "No tmux sessions found",
+                    systemImage: "terminal",
+                    description: Text(prompt.message ?? String(localized: "Create a new session, or continue without tmux."))
+                )
+            } else {
                 Label("No tmux sessions found", systemImage: "terminal")
                     .font(.headline)
-                Text("Create a new session, or continue without tmux.")
+                Text(prompt.message ?? String(localized: "Create a new session, or continue without tmux."))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
-            .padding(.vertical, 8)
         }
+        .padding(.vertical, 8)
     }
 
     private func confirm(_ selection: TmuxAttachSelection) {

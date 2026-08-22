@@ -16,6 +16,21 @@ struct TmuxAttachPrompt: Identifiable, Equatable {
     let serverId: UUID
     let serverName: String
     let existingSessions: [TmuxAttachSessionInfo]
+    let message: String?
+
+    init(
+        id: UUID,
+        serverId: UUID,
+        serverName: String,
+        existingSessions: [TmuxAttachSessionInfo],
+        message: String? = nil
+    ) {
+        self.id = id
+        self.serverId = serverId
+        self.serverName = serverName
+        self.existingSessions = existingSessions
+        self.message = message
+    }
 }
 
 enum TmuxAttachSelection: Equatable {

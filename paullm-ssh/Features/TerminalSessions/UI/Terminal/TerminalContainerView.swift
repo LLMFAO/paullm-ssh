@@ -318,7 +318,7 @@ struct TerminalContainerView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            inputBufferInset
+            bottomControlInset
         }
         .platformSessionAppearance(
             onAppearAction: {
@@ -330,6 +330,26 @@ struct TerminalContainerView: View {
                 handleOnDisappearCleanup()
             }
         )
+    }
+
+    @ViewBuilder
+    private var bottomControlInset: some View {
+        #if os(iOS)
+        VStack(spacing: 0) {
+            inputBufferInset
+
+            if shouldAttemptConnection {
+                TerminalAccessoryBar(
+                    sessionId: session.id,
+                    onVoice: voiceTriggerHandler
+                )
+                .frame(height: 48)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
+        #else
+        inputBufferInset
+        #endif
     }
 
     @ViewBuilder
@@ -1153,4 +1173,3 @@ extension View {
     }
 }
 #endif
-
