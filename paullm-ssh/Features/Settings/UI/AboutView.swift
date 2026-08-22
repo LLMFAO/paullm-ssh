@@ -62,7 +62,7 @@ struct AboutView: View {
                     .cornerRadius(18)
                     .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
 
-                Text("paullm-ssh")
+                Text(AppBrand.displayName)
                     .font(.system(size: 24, weight: .bold))
 
                 Text(String(format: String(localized: "Version %@ (%@)"), appVersion, buildNumber))
@@ -73,7 +73,7 @@ struct AboutView: View {
             .padding(.bottom, 24)
 
             // Tagline
-            Text("Professional SSH client\nfor macOS & iOS")
+            Text(AppBrand.tagline)
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -83,38 +83,31 @@ struct AboutView: View {
             // Links
             VStack(spacing: 12) {
                 LinkButton(
-                    title: String(localized: "Visit Website"),
-                    icon: "globe",
-                    isSystemImage: true,
-                    url: "https://paullm.dev"
-                )
-
-                LinkButton(
-                    title: String(localized: "GitHub"),
+                    title: String(localized: "Source Code"),
                     icon: "chevron.left.forwardslash.chevron.right",
                     isSystemImage: true,
-                    url: "https://github.com/LLMFAO/paullm-ssh"
+                    url: AppBrand.repoURL
                 )
 
                 LinkButton(
                     title: String(localized: "Report an Issue"),
                     icon: "exclamationmark.bubble",
                     isSystemImage: true,
-                    url: "https://github.com/LLMFAO/paullm-ssh/issues"
+                    url: AppBrand.issuesURL
                 )
 
                 LinkButton(
                     title: String(localized: "Privacy Policy"),
                     icon: "hand.raised",
                     isSystemImage: true,
-                    url: "https://paullm.dev/privacy"
+                    url: AppBrand.privacyURL
                 )
 
                 LinkButton(
-                    title: String(localized: "Terms of Use (EULA)"),
+                    title: String(localized: "License (GPL-3.0)"),
                     icon: "doc.text",
                     isSystemImage: true,
-                    url: "https://paullm.dev/terms"
+                    url: AppBrand.licenseURL
                 )
             }
             .padding(.horizontal, 32)
@@ -124,10 +117,17 @@ struct AboutView: View {
                 .padding(.horizontal, 32)
 
             // Copyright
-        Text(String(format: String(localized: "© %lld Vivy Technologies Co., Limited"), Int64(Calendar.current.component(.year, from: Date()))))
-                .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
-                .padding(.vertical, 16)
+            VStack(spacing: 4) {
+                Text(verbatim: AppBrand.copyrightLine)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                Text(AppBrand.upstreamAttribution)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.quaternary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 16)
         }
         .frame(width: 320)
         .fixedSize(horizontal: false, vertical: true)

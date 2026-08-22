@@ -22,10 +22,9 @@ struct SupportSheet: View {
     }
 
     private let contactOptions: [ContactOption] = [
-        ContactOption(title: String(localized: "Developer"), subtitle: "@wiedymi", icon: "", iconImage: nil, iconText: "𝕏", color: .primary, url: "https://x.com/wiedymi"),
-        ContactOption(title: String(localized: "Discord"), subtitle: String(localized: "Join Community"), icon: "", iconImage: "DiscordLogo", iconText: nil, color: Color(red: 0.345, green: 0.396, blue: 0.949), url: "https://discord.gg/zemMZtrkSb"),
-        ContactOption(title: String(localized: "Email"), subtitle: "vvterm@vivy.company", icon: "envelope.fill", iconImage: nil, iconText: nil, color: .orange, url: "mailto:vvterm@vivy.company"),
-        ContactOption(title: String(localized: "GitHub"), subtitle: String(localized: "Report Issue"), icon: "exclamationmark.triangle.fill", iconImage: nil, iconText: nil, color: .red, url: "https://github.com/LLMFAO/paullm-ssh/issues")
+        ContactOption(title: String(localized: "Developer"), subtitle: AppBrand.xHandle, icon: "", iconImage: nil, iconText: "𝕏", color: .primary, url: AppBrand.xURL),
+        ContactOption(title: String(localized: "Email"), subtitle: AppBrand.supportEmail, icon: "envelope.fill", iconImage: nil, iconText: nil, color: .orange, url: AppBrand.supportMailto),
+        ContactOption(title: String(localized: "GitHub"), subtitle: String(localized: "Report Issue"), icon: "exclamationmark.triangle.fill", iconImage: nil, iconText: nil, color: .red, url: AppBrand.issuesURL)
     ]
 
     var body: some View {
@@ -110,10 +109,10 @@ struct SupportSheet: View {
 
             // Company footer
             Button {
-                openURL("https://x.com/vivytech")
+                openURL(AppBrand.xURL)
             } label: {
                 HStack(spacing: 6) {
-                    Text("Vivy Technologies Co., Limited")
+                    Text(verbatim: AppBrand.copyrightLine)
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                     Image(systemName: "arrow.up.right")
@@ -154,10 +153,9 @@ struct SupportSettingsView: View {
     }
 
     private let contactOptions: [ContactOption] = [
-        ContactOption(title: String(localized: "Developer"), subtitle: "@wiedymi", icon: "", iconImage: nil, iconText: "𝕏", color: .primary, url: "https://x.com/wiedymi"),
-        ContactOption(title: String(localized: "Discord"), subtitle: String(localized: "Join Community"), icon: "", iconImage: "DiscordLogo", iconText: nil, color: Color(red: 0.345, green: 0.396, blue: 0.949), url: "https://discord.gg/zemMZtrkSb"),
-        ContactOption(title: String(localized: "Email"), subtitle: "vvterm@vivy.company", icon: "envelope.fill", iconImage: nil, iconText: nil, color: .orange, url: "mailto:vvterm@vivy.company"),
-        ContactOption(title: String(localized: "GitHub"), subtitle: String(localized: "Report Issue"), icon: "exclamationmark.triangle.fill", iconImage: nil, iconText: nil, color: .red, url: "https://github.com/LLMFAO/paullm-ssh/issues")
+        ContactOption(title: String(localized: "Developer"), subtitle: AppBrand.xHandle, icon: "", iconImage: nil, iconText: "𝕏", color: .primary, url: AppBrand.xURL),
+        ContactOption(title: String(localized: "Email"), subtitle: AppBrand.supportEmail, icon: "envelope.fill", iconImage: nil, iconText: nil, color: .orange, url: AppBrand.supportMailto),
+        ContactOption(title: String(localized: "GitHub"), subtitle: String(localized: "Report Issue"), icon: "exclamationmark.triangle.fill", iconImage: nil, iconText: nil, color: .red, url: AppBrand.issuesURL)
     ]
 
     var body: some View {
@@ -208,10 +206,10 @@ struct SupportSettingsView: View {
 
             Section {
                 Button {
-                    openURL("https://x.com/vivytech")
+                    openURL(AppBrand.xURL)
                 } label: {
                     HStack {
-                        Text("Vivy Technologies Co., Limited")
+                        Text(verbatim: AppBrand.copyrightLine)
                             .foregroundStyle(.secondary)
                         Spacer()
                         Image(systemName: "arrow.up.right")

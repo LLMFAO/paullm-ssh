@@ -24,9 +24,8 @@ private struct ContactOption: Identifiable {
 }
 
 private let contactOptions: [ContactOption] = [
-    ContactOption(title: String(localized: "Developer"), subtitle: "@wiedymi", icon: "", iconImage: nil, iconText: "𝕏", color: .primary, url: "https://x.com/wiedymi"),
-    ContactOption(title: String(localized: "Discord"), subtitle: String(localized: "Join Community"), icon: "", iconImage: "DiscordLogo", iconText: nil, color: Color(red: 0.345, green: 0.396, blue: 0.949), url: "https://discord.gg/zemMZtrkSb"),
-    ContactOption(title: String(localized: "Email"), subtitle: "vvterm@vivy.company", icon: "envelope.fill", iconImage: nil, iconText: nil, color: .orange, url: "mailto:vvterm@vivy.company")
+    ContactOption(title: String(localized: "Developer"), subtitle: AppBrand.xHandle, icon: "", iconImage: nil, iconText: "𝕏", color: .primary, url: AppBrand.xURL),
+    ContactOption(title: String(localized: "Email"), subtitle: AppBrand.supportEmail, icon: "envelope.fill", iconImage: nil, iconText: nil, color: .orange, url: AppBrand.supportMailto)
 ]
 
 // MARK: - About Settings View
@@ -81,10 +80,7 @@ struct AboutSettingsView: View {
         #endif
     }
 
-    private var copyrightLine: String {
-        let year = Calendar.current.component(.year, from: Date())
-        return "© \(year) Vivy Technologies Co., Limited"
-    }
+    private var copyrightLine: String { AppBrand.copyrightLine }
 
     var body: some View {
         Form {
@@ -92,7 +88,7 @@ struct AboutSettingsView: View {
                 VStack(spacing: 16) {
                     appIcon
 
-                    Text("paullm-ssh")
+                    Text(AppBrand.displayName)
                         .font(.title)
                         .fontWeight(.bold)
 
@@ -103,7 +99,7 @@ struct AboutSettingsView: View {
                             showingReviewSheet = true
                         }
 
-                    Text("Professional SSH client\nfor macOS & iOS")
+                    Text(AppBrand.tagline)
                         .font(.footnote)
                         .foregroundStyle(subtitleColor)
                         .multilineTextAlignment(.center)
@@ -113,32 +109,26 @@ struct AboutSettingsView: View {
             }
 
             Section("Links") {
-                Link(destination: URL(string: "https://paullm.dev")!) {
-                    Label("Visit Website", systemImage: "globe")
+                Link(destination: URL(string: AppBrand.repoURL)!) {
+                    Label("Source Code", systemImage: "chevron.left.forwardslash.chevron.right")
                 }
                 .tint(.primary)
                 .foregroundStyle(.primary)
 
-                Link(destination: URL(string: "https://github.com/LLMFAO/paullm-ssh")!) {
-                    Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
-                }
-                .tint(.primary)
-                .foregroundStyle(.primary)
-
-                Link(destination: URL(string: "https://github.com/LLMFAO/paullm-ssh/issues")!) {
+                Link(destination: URL(string: AppBrand.issuesURL)!) {
                     Label("Report an Issue", systemImage: "exclamationmark.bubble")
                 }
                 .tint(.primary)
                 .foregroundStyle(.primary)
 
-                Link(destination: URL(string: "https://paullm.dev/privacy")!) {
+                Link(destination: URL(string: AppBrand.privacyURL)!) {
                     Label("Privacy Policy", systemImage: "hand.raised")
                 }
                 .tint(.primary)
                 .foregroundStyle(.primary)
 
-                Link(destination: URL(string: "https://paullm.dev/terms")!) {
-                    Label("Terms of Use (EULA)", systemImage: "doc.text")
+                Link(destination: URL(string: AppBrand.licenseURL)!) {
+                    Label("License (GPL-3.0)", systemImage: "doc.text")
                 }
                 .tint(.primary)
                 .foregroundStyle(.primary)
@@ -192,7 +182,7 @@ struct AboutSettingsView: View {
             Section {
                 #if os(iOS)
                 Button {
-                    openURL("https://x.com/vivytech")
+                    openURL(AppBrand.xURL)
                 } label: {
                     HStack {
                         Text(verbatim: copyrightLine)
@@ -206,11 +196,23 @@ struct AboutSettingsView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.plain)
-                #else
-                Text(verbatim: copyrightLine)
-                    .font(.footnote)
-                    .foregroundStyle(footerColor)
+
+                Text(AppBrand.upstreamAttribution)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
+                #else
+                VStack(spacing: 6) {
+                    Text(verbatim: copyrightLine)
+                        .font(.footnote)
+                        .foregroundStyle(footerColor)
+                    Text(AppBrand.upstreamAttribution)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
                 #endif
             }
         }

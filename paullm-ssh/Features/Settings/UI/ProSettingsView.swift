@@ -17,14 +17,14 @@ struct ProSettingsView: View {
             }
 
             Section("Legal") {
-                Link(destination: URL(string: "https://paullm.dev/privacy/")!) {
+                Link(destination: URL(string: AppBrand.privacyURL)!) {
                     Label("Privacy Policy", systemImage: "hand.raised")
                 }
                 .tint(.primary)
                 .foregroundStyle(.primary)
 
-                Link(destination: URL(string: "https://paullm.dev/terms/")!) {
-                    Label("Terms of Use (EULA)", systemImage: "doc.text")
+                Link(destination: URL(string: AppBrand.licenseURL)!) {
+                    Label("License (GPL-3.0)", systemImage: "doc.text")
                 }
                 .tint(.primary)
                 .foregroundStyle(.primary)
