@@ -655,6 +655,7 @@ struct TerminalAccessoryProfile: Codable, Equatable {
     var schemaVersion: Int
     var layout: TerminalAccessoryLayout
     var customActions: [TerminalAccessoryCustomAction]
+    var sessionTypes: [SavedSessionType]
     var updatedAt: Date
     var lastWriterDeviceId: String
 
@@ -662,6 +663,7 @@ struct TerminalAccessoryProfile: Codable, Equatable {
         case schemaVersion
         case layout
         case customActions
+        case sessionTypes
         case snippets
         case updatedAt
         case lastWriterDeviceId
@@ -671,12 +673,14 @@ struct TerminalAccessoryProfile: Codable, Equatable {
         schemaVersion: Int,
         layout: TerminalAccessoryLayout,
         customActions: [TerminalAccessoryCustomAction],
+        sessionTypes: [SavedSessionType] = [],
         updatedAt: Date,
         lastWriterDeviceId: String
     ) {
         self.schemaVersion = schemaVersion
         self.layout = layout
         self.customActions = customActions
+        self.sessionTypes = sessionTypes
         self.updatedAt = updatedAt
         self.lastWriterDeviceId = lastWriterDeviceId
     }
@@ -695,6 +699,8 @@ struct TerminalAccessoryProfile: Codable, Equatable {
             let legacySnippets = try container.decodeIfPresent([TerminalSnippet].self, forKey: .snippets) ?? []
             customActions = legacySnippets.map(\.asCustomAction)
         }
+
+        sessionTypes = try container.decodeIfPresent([SavedSessionType].self, forKey: .sessionTypes) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -702,13 +708,14 @@ struct TerminalAccessoryProfile: Codable, Equatable {
         try container.encode(schemaVersion, forKey: .schemaVersion)
         try container.encode(layout, forKey: .layout)
         try container.encode(customActions, forKey: .customActions)
+        try container.encode(sessionTypes, forKey: .sessionTypes)
         try container.encode(updatedAt, forKey: .updatedAt)
         try container.encode(lastWriterDeviceId, forKey: .lastWriterDeviceId)
     }
 }
 
 extension TerminalAccessoryProfile {
-    static let schemaVersion = 2
+    static let schemaVersion = 3
     static let recordType = "UserPreference"
     static let recordName = "terminalAccessory.v1"
     static let defaultsKey = CloudKitSyncConstants.terminalAccessoryProfileStorageKey
@@ -718,6 +725,11 @@ extension TerminalAccessoryProfile {
     static let maxCustomActions = 100
     static let maxCustomActionTitleLength = 24
     static let maxCommandContentLength = 16384
+
+    static let maxSessionTypes = 50
+    static let maxSessionTypeTitleLength = 32
+    static let maxSessionTypeCommandLength = 1024
+    static let maxSessionTypePrefixLength = 24
 
     static let defaultActiveItems: [TerminalAccessoryItemRef] = [
         .system(.escape),
@@ -731,7 +743,6 @@ extension TerminalAccessoryProfile {
         .system(.ctrlD),
         .system(.ctrlZ),
         .system(.ctrlL),
-        .system(.openInputBuffer),
         .system(.home),
         .system(.end),
         .system(.pageUp),
@@ -779,7 +790,9 @@ extension TerminalAccessoryProfile {
     }
 
     static var availableSystemActions: [TerminalAccessorySystemActionID] {
-        TerminalAccessorySystemActionID.allCases.filter { $0 != .unknown }
+        // `.openInputBuffer` (Compose) is pinned to the leading button stack, so it is
+        // not a customizable scroll-bar item.
+        TerminalAccessorySystemActionID.allCases.filter { $0 != .unknown && $0 != .openInputBuffer }
     }
 
     func ensuringDefaultStartupActions(now: Date = Date()) -> TerminalAccessoryProfile {
@@ -881,9 +894,44 @@ extension TerminalAccessoryProfile {
                 updatedAt: layout.updatedAt
             ),
             customActions: Array(normalizedAndLimitedActions),
+            sessionTypes: Self.normalizedSessionTypes(sessionTypes),
             updatedAt: updatedAt,
             lastWriterDeviceId: lastWriterDeviceId.isEmpty ? DeviceIdentity.id : lastWriterDeviceId
         )
+    }
+
+    /// Dedups by id (newest `updatedAt` wins), keeps soft-delete tombstones, sorts
+    /// active entries by `order` then `updatedAt`, and caps the active count.
+    static func normalizedSessionTypes(_ types: [SavedSessionType]) -> [SavedSessionType] {
+        var byID: [UUID: SavedSessionType] = [:]
+        for type in types {
+            let normalized = type.normalized()
+            if let existing = byID[normalized.id] {
+                if normalized.updatedAt > existing.updatedAt {
+                    byID[normalized.id] = normalized
+                }
+            } else {
+                byID[normalized.id] = normalized
+            }
+        }
+
+        let active = byID.values
+            .filter { !$0.isDeleted }
+            .sorted { lhs, rhs in
+                if lhs.order == rhs.order {
+                    if lhs.updatedAt == rhs.updatedAt {
+                        return lhs.id.uuidString < rhs.id.uuidString
+                    }
+                    return lhs.updatedAt > rhs.updatedAt
+                }
+                return lhs.order < rhs.order
+            }
+            .prefix(maxSessionTypes)
+
+        let activeIDs = Set(active.map(\.id))
+        let tombstones = byID.values.filter(\.isDeleted)
+
+        return Array(active) + tombstones.filter { !activeIDs.contains($0.id) }
     }
 
     static func merged(local: TerminalAccessoryProfile, remote: TerminalAccessoryProfile) -> TerminalAccessoryProfile {
@@ -919,6 +967,21 @@ extension TerminalAccessoryProfile {
             return lhs.updatedAt > rhs.updatedAt
         }
 
+        var sessionTypesByID: [UUID: SavedSessionType] = [:]
+        for type in normalizedRemote.sessionTypes {
+            sessionTypesByID[type.id] = type
+        }
+        for type in normalizedLocal.sessionTypes {
+            if let existing = sessionTypesByID[type.id] {
+                if type.updatedAt >= existing.updatedAt {
+                    sessionTypesByID[type.id] = type
+                }
+            } else {
+                sessionTypesByID[type.id] = type
+            }
+        }
+        let mergedSessionTypes = normalizedSessionTypes(Array(sessionTypesByID.values))
+
         let mergedUpdatedAt = max(
             normalizedLocal.updatedAt,
             normalizedRemote.updatedAt,
@@ -941,6 +1004,7 @@ extension TerminalAccessoryProfile {
             schemaVersion: max(normalizedLocal.schemaVersion, normalizedRemote.schemaVersion, Self.schemaVersion),
             layout: mergedLayout,
             customActions: Array(mergedActions),
+            sessionTypes: mergedSessionTypes,
             updatedAt: mergedUpdatedAt,
             lastWriterDeviceId: writerDeviceID
         )
@@ -974,6 +1038,41 @@ private extension TerminalAccessoryCustomAction {
             commandSendMode: commandSendMode,
             shortcutKey: shortcutKey,
             shortcutModifiers: shortcutModifiers,
+            updatedAt: updatedAt,
+            deletedAt: deletedAt
+        )
+    }
+}
+
+private extension SavedSessionType {
+    func normalized() -> SavedSessionType {
+        if isDeleted {
+            return SavedSessionType(
+                id: id,
+                title: "",
+                command: "",
+                sessionNamePrefix: nil,
+                iconSystemName: SavedSessionType.defaultIconSystemName,
+                order: order,
+                updatedAt: updatedAt,
+                deletedAt: deletedAt
+            )
+        }
+
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedCommand = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedPrefix = sessionNamePrefix?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedIcon = iconSystemName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return SavedSessionType(
+            id: id,
+            title: String(trimmedTitle.prefix(TerminalAccessoryProfile.maxSessionTypeTitleLength)),
+            command: String(trimmedCommand.prefix(TerminalAccessoryProfile.maxSessionTypeCommandLength)),
+            sessionNamePrefix: (trimmedPrefix?.isEmpty ?? true)
+                ? nil
+                : String(trimmedPrefix!.prefix(TerminalAccessoryProfile.maxSessionTypePrefixLength)),
+            iconSystemName: trimmedIcon.isEmpty ? SavedSessionType.defaultIconSystemName : trimmedIcon,
+            order: order,
             updatedAt: updatedAt,
             deletedAt: deletedAt
         )

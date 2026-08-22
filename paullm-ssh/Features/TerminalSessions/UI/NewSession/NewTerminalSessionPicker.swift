@@ -18,6 +18,7 @@ struct NewTerminalSessionPicker: View {
     @StateObject private var toolkitManager: ToolkitManager
 
     @State private var selectedActionID: UUID?
+    @State private var selectedSavedTypeID: UUID?
     @State private var isCustomSelected = false
     @State private var isShellSelected = false
     @State private var bypassPermissions = false
@@ -27,6 +28,7 @@ struct NewTerminalSessionPicker: View {
     @State private var selectedEntryForSetup: ToolkitEntry?
     @State private var selectedWorkingDirectory: String?
     @State private var showingDirectoryPicker = false
+    @State private var saveErrorMessage: String?
 
     init(
         server: Server,
@@ -73,11 +75,25 @@ struct NewTerminalSessionPicker: View {
         return nil
     }
 
+    private var isTmuxSelected: Bool {
+        selectedActionID == nil && selectedSavedTypeID == nil && !isCustomSelected && !isShellSelected
+    }
+
+    private var selectedSavedType: SavedSessionType? {
+        guard let selectedSavedTypeID else { return nil }
+        return preferences.savedSessionTypes.first { $0.id == selectedSavedTypeID }
+    }
+
     private var canStart: Bool {
         if isCustomSelected {
             return !customCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
         return true
+    }
+
+    private var canSaveCustomAsSessionType: Bool {
+        !customCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && preferences.canCreateSessionType
     }
 
     var body: some View {
@@ -103,9 +119,10 @@ struct NewTerminalSessionPicker: View {
                         title: TerminalSessionKind.tmux.displayName,
                         subtitle: String(localized: "Attach or create a tmux session"),
                         kind: .tmux,
-                        isSelected: selectedActionID == nil && !isCustomSelected && !isShellSelected
+                        isSelected: isTmuxSelected
                     ) {
                         selectedActionID = nil
+                        selectedSavedTypeID = nil
                         isCustomSelected = false
                         isShellSelected = false
                         bypassPermissions = false
@@ -118,6 +135,7 @@ struct NewTerminalSessionPicker: View {
                         isSelected: isShellSelected
                     ) {
                         selectedActionID = nil
+                        selectedSavedTypeID = nil
                         isCustomSelected = false
                         isShellSelected = true
                         bypassPermissions = false
@@ -134,9 +152,16 @@ struct NewTerminalSessionPicker: View {
                         isSelected: isCustomSelected
                     ) {
                         selectedActionID = nil
+                        selectedSavedTypeID = nil
                         isCustomSelected = true
                         isShellSelected = false
                         bypassPermissions = false
+                    }
+                }
+
+                if !preferences.savedSessionTypes.isEmpty {
+                    Section(String(localized: "My Session Types")) {
+                        ForEach(preferences.savedSessionTypes) { savedSessionTypeRow($0) }
                     }
                 }
 
@@ -194,6 +219,24 @@ struct NewTerminalSessionPicker: View {
                         TextField("Session type", text: $customSessionType)
                     } footer: {
                         Text(customSessionFooter)
+                    }
+
+                    Section {
+                        Button {
+                            saveCustomAsSessionType()
+                        } label: {
+                            Label(String(localized: "Save as Session Type"), systemImage: "square.and.arrow.down")
+                        }
+                        .disabled(!canSaveCustomAsSessionType)
+                    } footer: {
+                        if let saveErrorMessage {
+                            Text(saveErrorMessage)
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        } else {
+                            Text(String(localized: "Save this command so it appears under My Session Types."))
+                                .font(.caption)
+                        }
                     }
                 }
             }
@@ -325,7 +368,10 @@ struct NewTerminalSessionPicker: View {
 
     private func resolvedStartup() -> TerminalSessionStartup {
         var startup: TerminalSessionStartup
-        if isShellSelected {
+        if let selectedSavedType {
+            startup = selectedSavedType.startup(workingDirectory: selectedWorkingDirectory)
+            return startup
+        } else if isShellSelected {
             startup = .shell
         } else if isCustomSelected {
             startup = resolvedCustomStartup()
@@ -413,12 +459,79 @@ struct NewTerminalSessionPicker: View {
         return lastPathComponent.isEmpty ? string : lastPathComponent
     }
 
+    private func savedSessionTypeRow(_ sessionType: SavedSessionType) -> some View {
+        let isSelected = selectedSavedTypeID == sessionType.id
+        let icon = sessionType.iconSystemName.isEmpty
+            ? SavedSessionType.defaultIconSystemName
+            : sessionType.iconSystemName
+        return Button {
+            selectedSavedTypeID = sessionType.id
+            selectedActionID = nil
+            isCustomSelected = false
+            isShellSelected = false
+            bypassPermissions = false
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: icon)
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .frame(width: 26)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(sessionType.title)
+                        .foregroundStyle(.primary)
+                    Text(sessionType.command)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 8)
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func saveCustomAsSessionType() {
+        let command = customCommand.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !command.isEmpty else { return }
+
+        let prefix = resolvedCustomSessionPrefix()
+        let title = customTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedTitle = title.isEmpty ? resolvedCustomTitle(prefix: prefix, command: command) : title
+
+        do {
+            let saved = try preferences.createSessionType(
+                title: resolvedTitle,
+                command: command,
+                sessionNamePrefix: prefix,
+                iconSystemName: TerminalSessionKind.custom.iconSystemName
+            )
+            saveErrorMessage = nil
+            selectedSavedTypeID = saved.id
+            selectedActionID = nil
+            isCustomSelected = false
+            isShellSelected = false
+            customTitle = ""
+            customCommand = ""
+            customSessionType = ""
+        } catch {
+            saveErrorMessage = error.localizedDescription
+        }
+    }
+
     private func aiCLISessionRow(definition: TerminalStartupActionDefinition) -> some View {
         let isSelected = selectedActionID == definition.id && !isCustomSelected
         let toolkitStatus = toolkitManager.status(for: definition.kind)
 
         return Button {
             selectedActionID = definition.id
+            selectedSavedTypeID = nil
             isCustomSelected = false
             isShellSelected = false
             if definition.bypassPermissionsCommand == nil {

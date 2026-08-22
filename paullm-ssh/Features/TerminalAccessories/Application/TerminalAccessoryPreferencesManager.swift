@@ -85,6 +85,136 @@ final class TerminalAccessoryPreferencesManager: ObservableObject {
         customActions.first { $0.id == id }
     }
 
+    // MARK: - Saved session types
+
+    var savedSessionTypes: [SavedSessionType] {
+        profile.sessionTypes
+            .filter { !$0.isDeleted }
+            .sorted { lhs, rhs in
+                if lhs.order == rhs.order {
+                    return lhs.updatedAt > rhs.updatedAt
+                }
+                return lhs.order < rhs.order
+            }
+    }
+
+    var canCreateSessionType: Bool {
+        savedSessionTypes.count < TerminalAccessoryProfile.maxSessionTypes
+    }
+
+    func sessionType(for id: UUID) -> SavedSessionType? {
+        savedSessionTypes.first { $0.id == id }
+    }
+
+    @discardableResult
+    func createSessionType(
+        title: String,
+        command: String,
+        sessionNamePrefix: String?,
+        iconSystemName: String
+    ) throws -> SavedSessionType {
+        guard canCreateSessionType else {
+            throw TerminalAccessoryValidationError.sessionTypeLimitReached
+        }
+
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedCommand = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else {
+            throw TerminalAccessoryValidationError.emptyTitle
+        }
+        guard !trimmedCommand.isEmpty else {
+            throw TerminalAccessoryValidationError.emptyCommandContent
+        }
+
+        let now = Date()
+        let nextOrder = (savedSessionTypes.map(\.order).max() ?? -1) + 1
+        let trimmedPrefix = sessionNamePrefix?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedIcon = iconSystemName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let sessionType = SavedSessionType(
+            title: trimmedTitle,
+            command: trimmedCommand,
+            sessionNamePrefix: (trimmedPrefix?.isEmpty ?? true) ? nil : trimmedPrefix,
+            iconSystemName: trimmedIcon.isEmpty ? SavedSessionType.defaultIconSystemName : trimmedIcon,
+            order: nextOrder,
+            updatedAt: now,
+            deletedAt: nil
+        )
+
+        applyProfileMutation(at: now) { nextProfile, _ in
+            nextProfile.sessionTypes.append(sessionType)
+        }
+        return sessionType
+    }
+
+    @discardableResult
+    func updateSessionType(
+        id: UUID,
+        title: String,
+        command: String,
+        sessionNamePrefix: String?,
+        iconSystemName: String
+    ) throws -> SavedSessionType {
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedCommand = command.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTitle.isEmpty else {
+            throw TerminalAccessoryValidationError.emptyTitle
+        }
+        guard !trimmedCommand.isEmpty else {
+            throw TerminalAccessoryValidationError.emptyCommandContent
+        }
+
+        guard let index = profile.sessionTypes.firstIndex(where: { $0.id == id && !$0.isDeleted }) else {
+            throw TerminalAccessoryValidationError.sessionTypeNotFound
+        }
+
+        let now = Date()
+        let trimmedPrefix = sessionNamePrefix?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedIcon = iconSystemName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        applyProfileMutation(at: now) { nextProfile, mutationDate in
+            nextProfile.sessionTypes[index].title = trimmedTitle
+            nextProfile.sessionTypes[index].command = trimmedCommand
+            nextProfile.sessionTypes[index].sessionNamePrefix = (trimmedPrefix?.isEmpty ?? true) ? nil : trimmedPrefix
+            nextProfile.sessionTypes[index].iconSystemName = trimmedIcon.isEmpty
+                ? SavedSessionType.defaultIconSystemName
+                : trimmedIcon
+            nextProfile.sessionTypes[index].updatedAt = mutationDate
+            nextProfile.sessionTypes[index].deletedAt = nil
+        }
+        return profile.sessionTypes[index]
+    }
+
+    func deleteSessionType(id: UUID) {
+        guard let index = profile.sessionTypes.firstIndex(where: { $0.id == id && !$0.isDeleted }) else {
+            return
+        }
+
+        applyProfileMutation { nextProfile, now in
+            nextProfile.sessionTypes[index].title = ""
+            nextProfile.sessionTypes[index].command = ""
+            nextProfile.sessionTypes[index].sessionNamePrefix = nil
+            nextProfile.sessionTypes[index].deletedAt = now
+            nextProfile.sessionTypes[index].updatedAt = now
+        }
+    }
+
+    func moveSessionTypes(fromOffsets offsets: IndexSet, toOffset destination: Int) {
+        let ordered = moveItems(savedSessionTypes, fromOffsets: offsets, toOffset: destination)
+
+        let now = Date()
+        let orderByID = Dictionary(uniqueKeysWithValues: ordered.enumerated().map { ($1.id, $0) })
+
+        applyProfileMutation(at: now) { nextProfile, mutationDate in
+            for index in nextProfile.sessionTypes.indices {
+                guard let newOrder = orderByID[nextProfile.sessionTypes[index].id] else { continue }
+                guard nextProfile.sessionTypes[index].order != newOrder else { continue }
+                nextProfile.sessionTypes[index].order = newOrder
+                nextProfile.sessionTypes[index].updatedAt = mutationDate
+            }
+        }
+    }
+
     func createCustomAction(
         title: String,
         kind: TerminalAccessoryCustomActionKind,

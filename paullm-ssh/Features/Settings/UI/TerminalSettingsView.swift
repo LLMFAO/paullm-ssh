@@ -267,6 +267,22 @@ struct TerminalSettingsView: View {
         }
     }
 
+    private var sessionTypesSection: some View {
+        Section {
+            NavigationLink {
+                SessionTypesSettingsView()
+            } label: {
+                Text("Manage Session Types")
+            }
+        } header: {
+            Text("Session Types")
+        } footer: {
+            Text("Create your own session types with custom commands. They appear in the New Session picker and sync across your devices.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
     private var copyProcessingSection: some View {
         Section {
             Toggle("Trim trailing whitespace", isOn: $copyTrimTrailingWhitespace)
@@ -333,6 +349,7 @@ struct TerminalSettingsView: View {
             terminalBehaviorSection
             keyboardAccessorySection
             sessionPersistenceSection
+            sessionTypesSection
             copyProcessingSection
             richClipboardSection
             sshConnectionSection

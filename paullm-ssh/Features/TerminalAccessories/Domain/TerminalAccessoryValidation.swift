@@ -5,6 +5,8 @@ enum TerminalAccessoryValidationError: LocalizedError {
     case emptyTitle
     case emptyCommandContent
     case customActionNotFound
+    case sessionTypeLimitReached
+    case sessionTypeNotFound
 
     var errorDescription: String? {
         switch self {
@@ -19,6 +21,13 @@ enum TerminalAccessoryValidationError: LocalizedError {
             return String(localized: "Command content cannot be empty.")
         case .customActionNotFound:
             return String(localized: "Action not found.")
+        case .sessionTypeLimitReached:
+            return String(
+                format: String(localized: "You can create up to %lld session types."),
+                Int64(TerminalAccessoryProfile.maxSessionTypes)
+            )
+        case .sessionTypeNotFound:
+            return String(localized: "Session type not found.")
         }
     }
 }
