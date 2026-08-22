@@ -83,6 +83,20 @@ struct AboutView: View {
             // Links
             VStack(spacing: 12) {
                 LinkButton(
+                    title: String(localized: "Visit Website"),
+                    icon: "globe",
+                    isSystemImage: true,
+                    url: AppBrand.websiteURL
+                )
+
+                LinkButton(
+                    title: String(localized: "Support"),
+                    icon: "lifepreserver",
+                    isSystemImage: true,
+                    url: AppBrand.supportURL
+                )
+
+                LinkButton(
                     title: String(localized: "Source Code"),
                     icon: "chevron.left.forwardslash.chevron.right",
                     isSystemImage: true,

@@ -2,6 +2,9 @@
 
 **Last updated: 2026-08-22**
 
+> The canonical version of this policy is published at
+> https://paullm.com/privacy/paullm-ssh
+
 paullm-ssh is an SSH, SFTP, and terminal client. It connects your device directly
 to servers that *you* control. The developer operates no backend, no account
 system, and no analytics service, and receives no data from the app.

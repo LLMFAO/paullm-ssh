@@ -109,6 +109,18 @@ struct AboutSettingsView: View {
             }
 
             Section("Links") {
+                Link(destination: URL(string: AppBrand.websiteURL)!) {
+                    Label("Visit Website", systemImage: "globe")
+                }
+                .tint(.primary)
+                .foregroundStyle(.primary)
+
+                Link(destination: URL(string: AppBrand.supportURL)!) {
+                    Label("Support", systemImage: "lifepreserver")
+                }
+                .tint(.primary)
+                .foregroundStyle(.primary)
+
                 Link(destination: URL(string: AppBrand.repoURL)!) {
                     Label("Source Code", systemImage: "chevron.left.forwardslash.chevron.right")
                 }

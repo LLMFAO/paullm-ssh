@@ -28,6 +28,12 @@ enum AppBrand {
     //
     // These all resolve today. The previous Website/Privacy/Terms links pointed
     // at paullm.dev, which has no DNS record, so all three were dead.
+    // Privacy and Support follow the /privacy/<app> and /support/<app> pattern
+    // already used by the other apps on paullm.com.
+
+    static let websiteURL = "https://paullm.com"
+    static let privacyURL = "https://paullm.com/privacy/paullm-ssh"
+    static let supportURL = "https://paullm.com/support/paullm-ssh"
 
     static let repoURL = "https://github.com/LLMFAO/paullm-ssh"
     static let issuesURL = "https://github.com/LLMFAO/paullm-ssh/issues"
@@ -35,7 +41,6 @@ enum AppBrand {
     /// GPL-3.0 is the license these binaries are distributed under, so the
     /// license file is the app's actual terms of use.
     static let licenseURL = "https://github.com/LLMFAO/paullm-ssh/blob/main/LICENSE"
-    static let privacyURL = "https://github.com/LLMFAO/paullm-ssh/blob/main/PRIVACY.md"
 
     // MARK: - Legal attribution
     //
