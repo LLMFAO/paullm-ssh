@@ -49,5 +49,7 @@ enum AppBrand {
         return "© \(year) Paul Pettit"
     }
 
-    static let upstreamAttribution = "Modified from VVTerm — © Vivy Technologies Co., Limited. Licensed under GPL-3.0."
+    /// GPLv3 §5(a) requires a modified work to carry prominent notice that it
+    /// was changed, along with a relevant date.
+    static let upstreamAttribution = "Modified from VVTerm (© Vivy Technologies Co., Limited) since May 2026. Licensed under GPL-3.0."
 }

@@ -13,7 +13,7 @@ Older versions may not receive security updates.
 
 Please report vulnerabilities privately to:
 
-- `vvterm@vivy.company`
+- `me@pauljpettit.com`
 
 Use the subject prefix `"[Security]"` and include:
 

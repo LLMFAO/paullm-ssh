@@ -22,8 +22,8 @@ Requirements:
 Setup:
 
 ```bash
-git clone https://github.com/vivy-company/vvterm.git
-cd vvterm
+git clone https://github.com/LLMFAO/paullm-ssh.git
+cd paullm-ssh
 ./scripts/build.sh all
 open paullm-ssh.xcodeproj
 ```
@@ -36,22 +36,12 @@ open paullm-ssh.xcodeproj
 4. Include screenshots or recordings for UI changes.
 5. Include clear validation notes for networking/terminal behavior changes.
 
-## CLA Requirement
-
-This repository requires signing the Contributor License Agreement before a PR can be merged.
-
-1. Read `CLA.md`.
-2. Comment on your pull request with the exact text below:
-
-```text
-I have read the CLA Document and I hereby sign the CLA
-```
-
-CLA checks are enforced by the repository bot configuration in `.clabot`.
-
 ## License
 
-By submitting contributions, you agree that your contributions may be distributed under the project's dual-license model:
+This project is licensed under GPL-3.0 (`LICENSE`). By submitting contributions,
+you agree that your contributions are licensed under GPL-3.0 as well.
 
-- Source code license: `LICENSE` (GPL-3.0)
-- Official App Store binary terms: `LICENSE-APPSTORE.md`
+There is no Contributor License Agreement. The upstream project this fork is
+based on used a CLA to assign rights to its owner so it could dual-license its
+own binaries; that arrangement does not apply here and this fork does not
+collect rights assignments.

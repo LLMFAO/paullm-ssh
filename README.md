@@ -235,8 +235,25 @@ Swift package dependencies currently resolved by the Xcode project:
 - [docs/marketing/](docs/marketing/) for website copy, technical site content, and feature messaging
 - `docs/specs/` for feature specs such as biometric locks, local discovery, terminal themes, terminal accessories, remote rich clipboard, and the SFTP browser
 
-## License
+## License and attribution
 
-paullm-ssh is licensed under GNU GPL v3.0 (`LICENSE`).
+paullm-ssh is licensed under **GNU GPL v3.0** (`LICENSE`). Binaries are
+distributed under the same license — see `LICENSE-APPSTORE.md`.
 
-Copyright © 2025 paullm
+Copyright © 2026 Paul Pettit
+
+### Based on VVTerm
+
+This is a **modified version of VVTerm**, © Vivy Technologies Co., Limited,
+published under GPL-3.0 at https://github.com/vivy-company/vvterm
+
+Modifications by Paul Pettit began in May 2026 and are ongoing. Changes include
+the AI Toolkit, saved session types, tmux session lifecycle handling, a rebuilt
+libghostty for the iOS 16 deployment target, and the project's own branding and
+support channels.
+
+VVTerm additionally licenses *its own official App Store binaries* under a
+separate custom EULA. That arrangement is available only to the copyright
+holder and does **not** extend to this fork, which is GPL-3.0 only.
+
+Third-party dependency notices are in `THIRD_PARTY_NOTICES.md`.
