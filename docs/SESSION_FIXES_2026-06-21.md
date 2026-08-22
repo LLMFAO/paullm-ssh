@@ -108,6 +108,6 @@ it to `{ _ in nil }` made SFTP use a dedicated connection. **Confirmed working.*
 - Codesign needs both keychains unlocked + partition-listed:
   - login keychain (`~/Library/Keychains/login.keychain-db`) — **empty password**.
   - distribution cert lives in
-    `~/ColoradoDriversQuiz/build/signing/co-permit-quiz.keychain-db`
-    (password file alongside it).
+    `~/Developer/Signing/apple-distribution/ios-distribution.keychain-db`
+    (password in `~/Developer/Signing/apple-distribution/ios-distribution.keychain-password`).
 - Runbook (bump → archive → exportArchive upload) is in `CONTINUATION_PLAN.md §3`.

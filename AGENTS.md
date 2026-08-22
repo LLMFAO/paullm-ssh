@@ -282,8 +282,9 @@ Use the **`ship-testflight` skill** for the full flow. Key facts:
 - **Unlock + key-partition-list two keychains before each archive AND each export**
   (they re-lock between processes):
   - `~/Library/Keychains/login.keychain-db` — **empty password** (not the account password).
-  - distribution cert is in `~/ColoradoDriversQuiz/build/signing/co-permit-quiz.keychain-db`
-    (password file beside it). Export re-signs with this cert, so authorize it there too.
+  - distribution cert is in `~/Developer/Signing/apple-distribution/ios-distribution.keychain-db`
+    (password in `~/Developer/Signing/apple-distribution/ios-distribution.keychain-password`).
+    Export re-signs with this cert, so authorize it there too.
 - Bump `CURRENT_PROJECT_VERSION` to `2026.$(date +%-m%d).$(date +%H%M)` (unique; each
   dotted part < 2^31). Then `xcodebuild archive` → `xcodebuild -exportArchive`
   (`ExportOptions.plist`, method app-store-connect/upload) with the App Store Connect

@@ -1,5 +1,44 @@
 # Building paullm-ssh
 
+## SSH Host Setup
+
+If you want to use this Mac as a remote development host for AI coding tools (Claude, OpenCode, Codex, etc.), run:
+
+```bash
+./scripts/setup-ssh-host.sh
+```
+
+This interactive script will:
+
+1. Enable Remote Login (SSH)
+2. Harden SSH configuration (key-based auth, no root login, keepalive)
+3. Configure the macOS firewall
+4. Generate an Ed25519 SSH key pair for AI tool access
+5. Set up SSH config snippets
+
+For non-interactive setup with defaults:
+
+```bash
+./scripts/setup-ssh-host.sh --auto
+```
+
+Other options:
+
+```bash
+# Create a dedicated 'developer' user for AI tools
+./scripts/setup-ssh-host.sh --with-ai-user
+
+# Use a custom port
+./scripts/setup-ssh-host.sh --auto --port 2222
+
+# Preview changes without applying
+./scripts/setup-ssh-host.sh --dry-run
+```
+
+See `./scripts/setup-ssh-host.sh --help` for all options. For a setup and troubleshooting guide covering Tailscale MagicDNS, tmux, and typed AI CLI sessions, see [`AI_CODING_HOST_SETUP.md`](AI_CODING_HOST_SETUP.md).
+
+For website-facing copy and technical documentation about AI coding workflows, see `docs/marketing/technical-content.md`.
+
 ## Prerequisites
 
 - Apple Silicon Mac (arm64)

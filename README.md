@@ -13,6 +13,53 @@ Open-source SSH terminal for iPhone and Mac.
 
 paullm-ssh is a cross-platform SSH terminal app for Apple platforms. The current codebase targets iOS and macOS, uses Ghostty for terminal rendering, libssh2/OpenSSL for SSH transport, CloudKit for sync, and Keychain for local credential storage.
 
+## Getting Started
+
+### Use This Mac as an SSH Host for AI Coding Tools
+
+If you want to use this Mac as a remote development machine for Claude, OpenCode, Codex, Cursor, or any other AI tool that connects over SSH, run the host setup script. No app build required.
+
+```bash
+./scripts/setup-ssh-host.sh
+```
+
+This interactive script will:
+
+1. Enable Remote Login (SSH)
+2. Harden SSH configuration (key-based auth only, no root login, keepalive)
+3. Configure the macOS firewall
+4. Generate an Ed25519 SSH key pair for AI tool access
+5. Set up SSH config snippets with connection details
+
+For hands-off setup with defaults:
+
+```bash
+./scripts/setup-ssh-host.sh --auto
+```
+
+Other common options:
+
+```bash
+# Create a dedicated user for AI tools
+./scripts/setup-ssh-host.sh --with-ai-user
+
+# Use a custom SSH port
+./scripts/setup-ssh-host.sh --auto --port 2222
+
+# Preview what would change without applying
+./scripts/setup-ssh-host.sh --dry-run
+```
+
+See `./scripts/setup-ssh-host.sh --help` for all options. For tmux, Tailscale MagicDNS, and AI CLI troubleshooting, see [`docs/AI_CODING_HOST_SETUP.md`](docs/AI_CODING_HOST_SETUP.md).
+
+---
+
+### Install the App
+
+paullm-ssh is available on the App Store for iPhone and Mac.
+
+If you want to build it yourself, see the **Developer Setup** section below.
+
 ## Current State
 
 - Main app target: `paullm-ssh`
@@ -68,7 +115,40 @@ paullm-ssh is a cross-platform SSH terminal app for Apple platforms. The current
 - Remote server stats collection with live CPU and memory history
 - On-device voice-to-command pipeline with MLX model management and Apple Speech fallback
 
-## Architecture
+## Developer Setup
+
+> The following is only needed if you want to build the app from source. End users can skip this.
+
+### Requirements
+
+- Apple Silicon Mac (arm64)
+- Xcode `16.0+`
+- macOS `13.3+`
+- iOS `16.1+`
+- `zig` and `cmake`
+
+Install the non-Xcode build tools with Homebrew:
+
+```bash
+brew install zig cmake
+```
+
+### Building From Source
+
+```bash
+git clone https://github.com/paullm/paullm-ssh.git
+cd paullm-ssh
+
+# Build native vendor libraries (GhosttyKit + libssh2/OpenSSL)
+./scripts/build.sh all
+
+# Open the project in Xcode
+open paullm-ssh.xcodeproj
+```
+
+`./scripts/build.sh` supports `all`, `ghostty`, `ssh`, `clean`, and `help`.
+
+### Architecture
 
 paullm-ssh uses a feature-first structure for app-owned code.
 
@@ -122,39 +202,12 @@ paullm-sshShared/                   # Shared Activity attributes and small share
 paullm-sshTests/                    # Unit and integration tests
 paullm-sshUITests/                  # UI tests
 Vendor/                             # Vendored native dependencies
-docs/                               # Documentation
-scripts/                            # Build scripts
+docs/                               # Documentation (BUILDING.md, feature specs)
+scripts/                            # Build scripts and SSH host setup
+  build.sh                          # Native vendor library builds
+  setup-ssh-host.sh                 # Configure macOS as SSH dev host for AI tools
 web/                                # Marketing site
 ```
-
-## Requirements
-
-- Apple Silicon Mac for development
-- Xcode `16.0+`
-- macOS `13.3+`
-- iOS `16.1+`
-- `zig` and `cmake`
-
-Install the non-Xcode build tools with Homebrew:
-
-```bash
-brew install zig cmake
-```
-
-## Building From Source
-
-```bash
-git clone https://github.com/paullm/paullm-ssh.git
-cd paullm-ssh
-
-# Build native vendor libraries (GhosttyKit + libssh2/OpenSSL)
-./scripts/build.sh all
-
-# Open the project in Xcode
-open paullm-ssh.xcodeproj
-```
-
-`./scripts/build.sh` supports `all`, `ghostty`, `ssh`, `clean`, and `help`.
 
 ## Dependencies
 
@@ -179,6 +232,7 @@ Swift package dependencies currently resolved by the Xcode project:
 - [SECURITY.md](SECURITY.md) for vulnerability reporting
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for third-party notices
 - [CLA.md](CLA.md) for the contributor license agreement
+- [docs/marketing/](docs/marketing/) for website copy, technical site content, and feature messaging
 - `docs/specs/` for feature specs such as biometric locks, local discovery, terminal themes, terminal accessories, remote rich clipboard, and the SFTP browser
 
 ## License
